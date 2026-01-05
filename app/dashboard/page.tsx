@@ -1,53 +1,87 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/navbar"
 import { Sidebar } from "@/components/sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Code2, Play, BookOpen, TrendingUp, Plus } from "lucide-react"
+import { Code2, Play, BookOpen, TrendingUp, Plus, Globe } from "lucide-react"
 
-const languages = [
-  { name: "Python", icon: "🐍", color: "from-blue-500 to-blue-600" },
-  { name: "JavaScript", icon: "📜", color: "from-yellow-500 to-yellow-600" },
-  { name: "C++", icon: "⚡", color: "from-purple-500 to-purple-600" },
-  { name: "Java", icon: "☕", color: "from-red-500 to-red-600" },
-  { name: "TypeScript", icon: "💙", color: "from-blue-400 to-blue-500" },
-  { name: "Go", icon: "🔵", color: "from-cyan-500 to-cyan-600" },
-]
+const languageMap: Record<string, { name: string; icon: string; color: string }> = {
+  python_3: { name: "Python", icon: "🐍", color: "from-blue-500 to-blue-600" },
+  javascript_es6: { name: "JavaScript", icon: "📜", color: "from-yellow-500 to-yellow-600" },
+  cpp_20: { name: "C++", icon: "⚙️", color: "from-purple-500 to-purple-600" },
+  java_17: { name: "Java", icon: "☕", color: "from-red-500 to-red-600" },
+  typescript: { name: "TypeScript", icon: "💙", color: "from-blue-400 to-blue-500" },
+  go_1_21: { name: "Go", icon: "🔵", color: "from-cyan-500 to-cyan-600" },
+}
 
 const difficulties = ["Easy", "Medium", "Hard"]
-
-// Mock data for existing learning cards
-const mockLearningCards = [
-  {
-    id: 1,
-    language: "Python",
-    difficulty: "Medium",
-    progress: 65,
-    topicsCompleted: 12,
-    totalTopics: 18,
-    accuracy: 87,
-  },
-  {
-    id: 2,
-    language: "JavaScript",
-    difficulty: "Easy",
-    progress: 40,
-    topicsCompleted: 8,
-    totalTopics: 20,
-    accuracy: 92,
-  },
-]
 
 export default function DashboardPage() {
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const learningCards = mockLearningCards
+  const [currentLanguage, setCurrentLanguage] = useState<string | null>(null)
+  const [learningCards, setLearningCards] = useState<any[]>([])
+
+  // TODO: In production, fetch from API - GET /api/user/learning-paths
+  // Expected response: Array of learning paths with progress data
 
   const siteName = process.env.NEXT_PUBLIC_SITE_NAME || "LearnRL"
+
+  // Check if user has selected a language
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const selectedLanguage = localStorage.getItem('selectedLanguage')
+      
+      // TODO: In production, fetch from API - GET /api/user/profile
+      // Expected response: { user_id, email, language_id, languages_learning[] }
+      
+      if (!selectedLanguage) {
+        // No language selected, redirect to onboarding
+        router.push('/onboarding/language')
+      } else {
+        setCurrentLanguage(selectedLanguage)
+        
+        // Check if learning card exists for this language
+        const existingCards = localStorage.getItem('learningCards')
+        if (existingCards) {
+          setLearningCards(JSON.parse(existingCards))
+        } else {
+          // Create initial learning card for selected language
+          const langData = languageMap[selectedLanguage]
+          const initialCard = {
+            id: 1,
+            language_id: selectedLanguage,
+            language: langData?.name || "Unknown",
+            difficulty: 0.5, // Medium difficulty (0.0-1.0 scale)
+            progress: 0,
+            topicsCompleted: 0,
+            totalTopics: 8, // 8 universal concepts
+            accuracy: 0,
+          }
+          setLearningCards([initialCard])
+          localStorage.setItem('learningCards', JSON.stringify([initialCard]))
+        }
+      }
+    }
+  }, [router])
+
+  // Show loading while checking language
+  if (!currentLanguage) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const currentLangData = languageMap[currentLanguage]
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
@@ -60,12 +94,39 @@ export default function DashboardPage() {
             <div className="absolute -top-4 left-0 w-32 h-32 bg-blue-500/20 rounded-full filter blur-3xl"></div>
             <div className="absolute -top-4 right-0 w-32 h-32 bg-green-500/20 rounded-full filter blur-3xl"></div>
             <div className="relative">
-              <h1 className="text-4xl font-black mb-2 bg-gradient-to-r from-blue-600 via-green-500 to-blue-600 bg-clip-text text-transparent animate-gradient-x">
-                Welcome to {siteName}! 👋
-              </h1>
-              <p className="text-lg text-slate-600 dark:text-slate-300">
-                Create your personalized learning path and start mastering programming
-              </p>
+              <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
+                <div>
+                  <h1 className="text-4xl font-black mb-2 bg-gradient-to-r from-blue-600 via-green-500 to-blue-600 bg-clip-text text-transparent animate-gradient-x">
+                    Welcome to {siteName}! 👋
+                  </h1>
+                  <p className="text-lg text-slate-600 dark:text-slate-300">
+                    Create your personalized learning path and start mastering programming
+                  </p>
+                </div>
+                
+                {/* Current Language Badge */}
+                {currentLangData && (
+                  <Card className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="text-3xl">{currentLangData.icon}</div>
+                        <div>
+                          <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">Learning</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white">{currentLangData.name}</p>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => router.push('/onboarding/language')}
+                          className="ml-2"
+                        >
+                          <Globe className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             </div>
           </div>
 
@@ -141,32 +202,48 @@ export default function DashboardPage() {
             <div className="mb-8">
               <h2 className="text-3xl font-black mb-6 text-slate-900 dark:text-white">My Learning Paths</h2>
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {learningCards.map((card) => (
-                  <Card
-                    key={card.id}
-                    className="relative overflow-hidden border-2 border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/30 hover:-translate-y-1 group bg-white dark:bg-slate-800"
-                  >
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-500/10 to-transparent rounded-bl-[50px]"></div>
-                    <CardHeader>
-                      <div className="flex items-center justify-between mb-3">
-                        <CardTitle className="text-2xl font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{card.language}</CardTitle>
-                        <span
-                          className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-lg ${
-                            card.difficulty === "Easy"
-                              ? "bg-gradient-to-r from-green-500 to-green-600 text-white"
-                              : card.difficulty === "Medium"
-                              ? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-white"
-                              : "bg-gradient-to-r from-red-500 to-red-600 text-white"
-                          }`}
-                        >
-                          {card.difficulty}
-                        </span>
-                      </div>
-                      <CardDescription className="text-slate-600 dark:text-slate-400">
-                        {card.topicsCompleted} / {card.totalTopics} topics completed
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-5">
+                {learningCards.map((card) => {
+                  // Convert difficulty scale (0.0-1.0) to Easy/Medium/Hard for display
+                  const getDifficultyLabel = (diff: number) => {
+                    if (diff < 0.4) return "Easy"
+                    if (diff < 0.7) return "Medium"
+                    return "Hard"
+                  }
+                  
+                  const difficultyLabel = getDifficultyLabel(card.difficulty)
+                  const languageIcon = languageMap[card.language_id]?.icon || "📚"
+                  
+                  return (
+                    <Card
+                      key={card.id}
+                      className="relative overflow-hidden border-2 border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/30 hover:-translate-y-1 group bg-white dark:bg-slate-800"
+                    >
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-500/10 to-transparent rounded-bl-[50px]"></div>
+                      <CardHeader>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-3xl">{languageIcon}</span>
+                            <CardTitle className="text-2xl font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                              {card.language}
+                            </CardTitle>
+                          </div>
+                          <span
+                            className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-lg ${
+                              difficultyLabel === "Easy"
+                                ? "bg-gradient-to-r from-green-500 to-green-600 text-white"
+                                : difficultyLabel === "Medium"
+                                ? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-white"
+                                : "bg-gradient-to-r from-red-500 to-red-600 text-white"
+                            }`}
+                          >
+                            {difficultyLabel}
+                          </span>
+                        </div>
+                        <CardDescription className="text-slate-600 dark:text-slate-400">
+                          {card.topicsCompleted} / {card.totalTopics} topics completed
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-5">
                       <div>
                         <div className="flex justify-between text-sm mb-2">
                           <span className="text-slate-600 dark:text-slate-400 font-medium">Progress</span>
@@ -197,7 +274,8 @@ export default function DashboardPage() {
                       </Button>
                     </CardContent>
                   </Card>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}

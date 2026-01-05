@@ -22,9 +22,22 @@ export default function RegisterPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Add registration logic
+    // TODO: Call API - POST /api/user/register
+    // Expected payload: { name, email, password }
+    // Expected response: { user_id, token }
+    
     console.log("Registration submitted:", formData)
-    router.push("/dashboard")
+    
+    // Store user data temporarily for onboarding flow
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('pendingUser', JSON.stringify({
+        name: formData.name,
+        email: formData.email
+      }))
+    }
+    
+    // Redirect to language selection onboarding
+    router.push("/onboarding/language")
   }
 
   return (

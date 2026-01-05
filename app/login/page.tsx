@@ -20,9 +20,27 @@ export default function LoginPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Add login logic
+    // TODO: Call API - POST /api/user/login
+    // Expected payload: { email, password }
+    // Expected response: { user_id, token, language_id }
+    
     console.log("Login submitted:", formData)
-    router.push("/dashboard")
+    
+    // Check if user has selected a language
+    if (typeof window !== 'undefined') {
+      const selectedLanguage = localStorage.getItem('selectedLanguage')
+      
+      // TODO: In production, check language from API response
+      // If API returns language_id, store it in localStorage
+      
+      if (!selectedLanguage) {
+        // User hasn't selected language yet, redirect to onboarding
+        router.push("/onboarding/language")
+      } else {
+        // User has language selected, go to dashboard
+        router.push("/dashboard")
+      }
+    }
   }
 
   return (
