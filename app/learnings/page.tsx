@@ -9,12 +9,12 @@ import { Progress } from "@/components/ui/progress"
 import { Plus, BookOpen, TrendingUp, X } from "lucide-react"
 
 const languages = [
-  { name: "Python", icon: "🐍", color: "from-blue-500 to-blue-600" },
-  { name: "JavaScript", icon: "📜", color: "from-yellow-500 to-yellow-600" },
-  { name: "C++", icon: "⚡", color: "from-purple-500 to-purple-600" },
-  { name: "Java", icon: "☕", color: "from-red-500 to-red-600" },
-  { name: "TypeScript", icon: "💙", color: "from-blue-400 to-blue-500" },
-  { name: "Go", icon: "🔵", color: "from-cyan-500 to-cyan-600" },
+  { name: "Python", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg", color: "from-blue-500 to-blue-600" },
+  { name: "JavaScript", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg", color: "from-yellow-500 to-yellow-600" },
+  { name: "C++", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/cplusplus/cplusplus-original.svg", color: "from-purple-500 to-purple-600" },
+  { name: "Java", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg", color: "from-red-500 to-red-600" },
+  { name: "TypeScript", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg", color: "from-blue-400 to-blue-500" },
+  { name: "Go", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/go/go-original.svg", color: "from-cyan-500 to-cyan-600" },
 ]
 
 const difficulties = ["Easy", "Medium", "Hard"]
@@ -78,7 +78,7 @@ export default function LearningsPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="md:pl-64">
-        <main className="container px-4 py-8">
+        <main className="container mx-auto px-4 py-8">
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-green-600 via-blue-600 to-green-600 bg-clip-text text-transparent animate-gradient-x">My Learnings</h1>
@@ -271,7 +271,13 @@ export default function LearningsPage() {
                           </svg>
                         </div>
                       )}
-                      <div className="text-5xl mb-3 group-hover:scale-110 transition-transform">{lang.icon}</div>
+                      <div className="mb-3 group-hover:scale-110 transition-transform flex items-center justify-center">
+                        <img 
+                          src={lang.logo} 
+                          alt={`${lang.name} logo`} 
+                          className="w-16 h-16 object-contain"
+                        />
+                      </div>
                       <div className="text-sm font-bold text-slate-900 dark:text-white">{lang.name}</div>
                     </button>
                   ))}

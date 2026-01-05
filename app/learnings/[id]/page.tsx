@@ -89,7 +89,7 @@ export default function LearningDashboardPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="md:pl-64">
-        <main className="container px-4 py-8">
+        <main className="container mx-auto px-4 py-8">
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-2">

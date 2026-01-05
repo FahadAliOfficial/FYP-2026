@@ -271,17 +271,21 @@ export default function Home() {
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
             {[
-              { name: "Python", color: "from-blue-500 to-yellow-500", icon: "🐍" },
-              { name: "JavaScript", color: "from-yellow-400 to-yellow-500", icon: "⚡" },
-              { name: "TypeScript", color: "from-blue-600 to-blue-500", icon: "📘" },
-              { name: "Java", color: "from-red-600 to-orange-500", icon: "☕" },
-              { name: "C++", color: "from-blue-700 to-blue-500", icon: "⚙️" },
-              { name: "Go", color: "from-cyan-500 to-blue-500", icon: "🚀" }
+              { name: "Python", color: "from-blue-500 to-yellow-500", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" },
+              { name: "JavaScript", color: "from-yellow-400 to-yellow-500", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg" },
+              { name: "TypeScript", color: "from-blue-600 to-blue-500", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg" },
+              { name: "Java", color: "from-red-600 to-orange-500", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg" },
+              { name: "C++", color: "from-blue-700 to-blue-500", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/cplusplus/cplusplus-original.svg" },
+              { name: "Go", color: "from-cyan-500 to-blue-500", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/go/go-original.svg" }
             ].map((lang, index) => (
               <Card key={index} className="relative overflow-hidden border-2 border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/20 hover:-translate-y-1 group bg-white dark:bg-slate-800">
                 <CardContent className="p-6 text-center">
-                  <div className={`text-4xl mb-3 group-hover:scale-110 transition-transform duration-300`}>
-                    {lang.icon}
+                  <div className="mb-3 group-hover:scale-110 transition-transform duration-300 flex items-center justify-center">
+                    <img 
+                      src={lang.logo} 
+                      alt={`${lang.name} logo`} 
+                      className="w-12 h-12 object-contain"
+                    />
                   </div>
                   <h3 className="font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {lang.name}
@@ -504,7 +508,7 @@ export default function Home() {
                       <ArrowRight className="ml-2 h-5 w-5" />
                     </Link>
                   </Button>
-                  <Button size="lg" variant="outline" className="h-14 px-10 text-lg font-semibold border-2 border-white text-white hover:bg-white/10 rounded-2xl" asChild>
+                  <Button size="lg" className="h-14 px-10 text-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white hover:scale-105 transition-all shadow-xl rounded-2xl" asChild>
                     <Link href="/login">
                       Sign In
                     </Link>
@@ -520,7 +524,7 @@ export default function Home() {
       <footer className="border-t border-slate-200 dark:border-slate-800 py-12 bg-white dark:bg-slate-900">
         <div className="container mx-auto px-4">
           <div className="text-center text-sm text-slate-600 dark:text-slate-400">
-            <p>&copy; 2024 {siteName}. All rights reserved.</p>
+            <p>&copy; 2026 {siteName}. All rights reserved.</p>
           </div>
         </div>
       </footer>

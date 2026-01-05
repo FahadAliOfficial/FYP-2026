@@ -14,12 +14,12 @@ import { Progress } from "@/components/ui/progress"
 import { Code2, Play, BookOpen, TrendingUp, Plus, Globe } from "lucide-react"
 
 const languageMap: Record<string, { name: string; icon: string; color: string }> = {
-  python_3: { name: "Python", icon: "🐍", color: "from-blue-500 to-blue-600" },
-  javascript_es6: { name: "JavaScript", icon: "📜", color: "from-yellow-500 to-yellow-600" },
-  cpp_20: { name: "C++", icon: "⚙️", color: "from-purple-500 to-purple-600" },
-  java_17: { name: "Java", icon: "☕", color: "from-red-500 to-red-600" },
-  typescript: { name: "TypeScript", icon: "💙", color: "from-blue-400 to-blue-500" },
-  go_1_21: { name: "Go", icon: "🔵", color: "from-cyan-500 to-cyan-600" },
+  python_3: { name: "Python", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg", color: "from-blue-500 to-blue-600" },
+  javascript_es6: { name: "JavaScript", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg", color: "from-yellow-500 to-yellow-600" },
+  cpp_20: { name: "C++", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/cplusplus/cplusplus-original.svg", color: "from-purple-500 to-purple-600" },
+  java_17: { name: "Java", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg", color: "from-red-500 to-red-600" },
+  typescript: { name: "TypeScript", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg", color: "from-blue-400 to-blue-500" },
+  go_1_21: { name: "Go", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/go/go-original.svg", color: "from-cyan-500 to-cyan-600" },
 }
 
 const difficulties = ["Easy", "Medium", "Hard"]
@@ -180,7 +180,7 @@ export default function DashboardPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="md:pl-64">
-        <main className="container px-4 py-8">
+        <main className="container mx-auto px-4 py-8">
           {/* Welcome Header */}
           <div className="mb-8 relative">
             <div className="absolute -top-4 left-0 w-32 h-32 bg-blue-500/20 rounded-full filter blur-3xl"></div>
@@ -201,7 +201,11 @@ export default function DashboardPage() {
                   <Card className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="text-3xl">{currentLangData.icon}</div>
+                        <img 
+                          src={currentLangData.logo} 
+                          alt={`${currentLangData.name} logo`} 
+                          className="w-10 h-10 object-contain"
+                        />
                         <div>
                           <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">Learning</p>
                           <p className="text-lg font-bold text-slate-900 dark:text-white">{currentLangData.name}</p>

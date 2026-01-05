@@ -8,12 +8,12 @@ import { Progress } from "@/components/ui/progress"
 import { Code2, Play, BookOpen, TrendingUp } from "lucide-react"
 
 const languages = [
-  { name: "Python", icon: "🐍", color: "from-blue-500 to-blue-600" },
-  { name: "JavaScript", icon: "📜", color: "from-yellow-500 to-yellow-600" },
-  { name: "C++", icon: "⚡", color: "from-purple-500 to-purple-600" },
-  { name: "Java", icon: "☕", color: "from-red-500 to-red-600" },
-  { name: "TypeScript", icon: "💙", color: "from-blue-400 to-blue-500" },
-  { name: "Go", icon: "🔵", color: "from-cyan-500 to-cyan-600" },
+  { name: "Python", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg", color: "from-blue-500 to-blue-600" },
+  { name: "JavaScript", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg", color: "from-yellow-500 to-yellow-600" },
+  { name: "C++", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/cplusplus/cplusplus-original.svg", color: "from-purple-500 to-purple-600" },
+  { name: "Java", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg", color: "from-red-500 to-red-600" },
+  { name: "TypeScript", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg", color: "from-blue-400 to-blue-500" },
+  { name: "Go", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/go/go-original.svg", color: "from-cyan-500 to-cyan-600" },
 ]
 
 const difficulties = ["Easy", "Medium", "Hard"]
