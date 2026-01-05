@@ -4,6 +4,10 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/navbar"
 import { Sidebar } from "@/components/sidebar"
+import { MasteryHeatmap } from "@/components/mastery-heatmap"
+import { DecayAlerts } from "@/components/decay-alerts"
+import { RecommendedTopicCard } from "@/components/recommended-topic-card"
+import { RecentSessions } from "@/components/recent-sessions"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -68,6 +72,94 @@ export default function DashboardPage() {
       }
     }
   }, [router])
+
+  // TODO: In production, fetch from API - POST /api/state-vector
+  // Mock mastery data for current language
+  const mockMasteryData = {
+    UNIV_VAR: { mastery: 0.82, last_practiced: "2026-01-05T10:00:00Z", days_passed: 1 },
+    UNIV_COND: { mastery: 0.68, last_practiced: "2026-01-03T14:00:00Z", days_passed: 3 },
+    UNIV_LOOP: { mastery: 0.45, last_practiced: "2025-12-28T09:00:00Z", days_passed: 9 },
+    UNIV_FUNC: { mastery: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
+    UNIV_COLL: { mastery: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
+    UNIV_ERR: { mastery: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
+    UNIV_OOP_BASIC: { mastery: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
+    UNIV_OOP_ADV: { mastery: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
+  }
+
+  // TODO: Calculate decay alerts from mastery data
+  // Alert if current mastery < 0.5 after decay
+  const mockDecayAlerts = [
+    {
+      concept_id: "UNIV_LOOP",
+      concept_name: "Loops",
+      current_mastery: 0.45 * Math.exp(-0.02 * 9), // 0.37
+      original_mastery: 0.45,
+      days_passed: 9,
+    },
+  ]
+
+  // TODO: In production, get from RL model recommendation
+  const mockRecommendation = {
+    concept_id: "UNIV_LOOP",
+    concept_name: "Loops",
+    sub_topic: "for_loop_basics",
+    target_difficulty: 0.5,
+    estimated_time_minutes: 15,
+    reason: "Your Loops mastery has decayed and needs reinforcement. Start with basics before advancing to nested loops.",
+    prerequisite_met: true,
+  }
+
+  // TODO: In production, fetch from API - GET /api/sessions/recent
+  const mockRecentSessions = [
+    {
+      id: "1",
+      timestamp: "2026-01-05T14:30:00Z",
+      concept_id: "UNIV_VAR",
+      concept_name: "Variables & Data Types",
+      sub_topic: "variable_scope",
+      score: 0.85,
+      difficulty: 0.65,
+      mastery_gain: 0.08,
+      questions_answered: 10,
+    },
+    {
+      id: "2",
+      timestamp: "2026-01-03T10:15:00Z",
+      concept_id: "UNIV_COND",
+      concept_name: "Conditionals",
+      sub_topic: "if_else_basics",
+      score: 0.70,
+      difficulty: 0.50,
+      mastery_gain: 0.05,
+      questions_answered: 8,
+    },
+  ]
+
+  // Handlers
+  const handleConceptClick = (conceptId: string) => {
+    console.log("Concept clicked:", conceptId)
+    // TODO: Navigate to practice page with concept pre-selected
+    router.push(`/practice?concept=${conceptId}`)
+  }
+
+  const handleScheduleReview = (conceptId: string) => {
+    console.log("Schedule review for:", conceptId)
+    // TODO: Call API to schedule review
+    // TODO: Navigate to practice with review mode
+    router.push(`/practice?concept=${conceptId}&mode=review`)
+  }
+
+  const handleStartPractice = (conceptId: string, subTopic: string) => {
+    console.log("Start practice:", conceptId, subTopic)
+    // TODO: Navigate to practice configuration page
+    router.push(`/practice?concept=${conceptId}&subtopic=${subTopic}`)
+  }
+
+  const handlePracticeAgain = (conceptId: string, subTopic: string) => {
+    console.log("Practice again:", conceptId, subTopic)
+    // TODO: Navigate to practice
+    router.push(`/practice?concept=${conceptId}&subtopic=${subTopic}`)
+  }
 
   // Show loading while checking language
   if (!currentLanguage) {
@@ -195,6 +287,24 @@ export default function DashboardPage() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+
+          {/* Knowledge Decay Alerts */}
+          {mockDecayAlerts.length > 0 && (
+            <div className="mb-8">
+              <DecayAlerts 
+                alerts={mockDecayAlerts} 
+                onScheduleReview={handleScheduleReview}
+              />
+            </div>
+          )}
+
+          {/* AI Recommended Topic */}
+          <div className="mb-8">
+            <RecommendedTopicCard
+              recommendation={mockRecommendation}
+              onStartPractice={handleStartPractice}
+            />
           </div>
 
           {/* Existing Learning Cards */}

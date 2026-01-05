@@ -23,6 +23,14 @@ const navigation = [
     activeColor: "bg-gradient-to-r from-blue-600 to-blue-500"
   },
   {
+    name: "Analytics",
+    href: "/analytics",
+    icon: Sparkles,
+    color: "from-purple-600 to-pink-500",
+    hoverColor: "hover:bg-purple-50 dark:hover:bg-purple-950",
+    activeColor: "bg-gradient-to-r from-purple-600 to-pink-500"
+  },
+  {
     name: "My Learnings",
     href: "/learnings",
     icon: BookOpen,
