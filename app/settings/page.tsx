@@ -37,7 +37,7 @@ export default function SettingsPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="md:pl-64">
-        <main className="container max-w-4xl px-4 py-8">
+        <main className="container max-w-4xl mx-auto px-4 py-8">
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 bg-clip-text text-transparent animate-gradient-x">Settings</h1>
