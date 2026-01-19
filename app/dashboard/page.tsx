@@ -336,7 +336,11 @@ export default function DashboardPage() {
                       <CardHeader>
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
-                            <span className="text-3xl">{languageIcon}</span>
+                            <img 
+                              src={languageIcon} 
+                              alt={`${card.language} logo`} 
+                              className="w-8 h-8 object-contain"
+                            />
                             <CardTitle className="text-2xl font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                               {card.language}
                             </CardTitle>
