@@ -8,6 +8,8 @@ import { MasteryHeatmap } from "@/components/mastery-heatmap"
 import { DecayAlerts } from "@/components/decay-alerts"
 import { RecommendedTopicCard } from "@/components/recommended-topic-card"
 import { RecentSessions } from "@/components/recent-sessions"
+import { TransferBoostAlert } from "@/components/transfer-boost-alert"
+import { SynergyNotifications } from "@/components/synergy-notifications"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -108,6 +110,32 @@ export default function DashboardPage() {
     reason: "Your Loops mastery has decayed and needs reinforcement. Start with basics before advancing to nested loops.",
     prerequisite_met: true,
   }
+
+  // TODO: In production, fetch from API - GET /api/transfer/active-boosts
+  const mockTransferBoosts = [
+    {
+      source_language: "Python",
+      source_concept: "Loops",
+      target_language: "JavaScript",
+      target_concept: "Loops",
+      source_mastery: 0.82,
+      boost_amount: 12,
+      transfer_coefficient: 0.4,
+      logic_boost: 0.7,
+      syntax_friction: 0.3,
+    },
+  ]
+
+  // TODO: In production, fetch from API - GET /api/synergy/recent-bonuses
+  const mockSynergyBonuses = [
+    {
+      from_concept: "Loops",
+      to_concept: "Conditionals",
+      bonus_amount: 8,
+      reinforcement_weight: 0.1,
+      bidirectional: true,
+    },
+  ]
 
   // TODO: In production, fetch from API - GET /api/sessions/recent
   const mockRecentSessions = [
@@ -300,6 +328,20 @@ export default function DashboardPage() {
                 alerts={mockDecayAlerts} 
                 onScheduleReview={handleScheduleReview}
               />
+            </div>
+          )}
+
+          {/* Cross-Language Transfer Boosts */}
+          {mockTransferBoosts.length > 0 && (
+            <div className="mb-8">
+              <TransferBoostAlert boosts={mockTransferBoosts} />
+            </div>
+          )}
+
+          {/* Synergy Bonuses */}
+          {mockSynergyBonuses.length > 0 && (
+            <div className="mb-8">
+              <SynergyNotifications bonuses={mockSynergyBonuses} />
             </div>
           )}
 

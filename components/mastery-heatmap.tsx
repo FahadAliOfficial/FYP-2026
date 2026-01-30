@@ -75,6 +75,8 @@ const concepts = [
 interface MasteryData {
   [key: string]: {
     mastery: number // 0.0 - 1.0
+    fluency: number // 0.0 - 1.0 (time efficiency)
+    confidence: number // 0.0 - 1.0 (score stability)
     last_practiced: string // ISO date
     days_passed: number
   }
@@ -147,7 +149,7 @@ export function MasteryHeatmap({ languageId, masteryData, onConceptClick }: Mast
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {concepts.map((concept) => {
-          const data = masteryData?.[concept.id] || { mastery: 0, last_practiced: new Date().toISOString(), days_passed: 0 }
+          const data = masteryData?.[concept.id] || { mastery: 0, fluency: 0, confidence: 0, last_practiced: new Date().toISOString(), days_passed: 0 }
           const decayedMastery = calculateDecayedMastery(data.mastery, data.days_passed)
           const decayIndicator = getDecayIndicator(data.days_passed)
           const masteryColor = getMasteryColor(decayedMastery)
@@ -201,7 +203,7 @@ export function MasteryHeatmap({ languageId, masteryData, onConceptClick }: Mast
                   </span>
                 </div>
 
-                {/* Progress Bar */}
+                {/* Mastery Progress Bar */}
                 <div className="space-y-1">
                   <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                     <div 
@@ -218,6 +220,43 @@ export function MasteryHeatmap({ languageId, masteryData, onConceptClick }: Mast
                     )}
                   </div>
                 </div>
+
+                {/* Fluency & Confidence Metrics */}
+                {data.mastery > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                    {/* Fluency */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Fluency</span>
+                        <span className="text-xs font-bold text-green-600 dark:text-green-400">
+                          {Math.round((data.fluency || 0) * 100)}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-green-500 rounded-full transition-all duration-500"
+                          style={{ width: `${Math.round((data.fluency || 0) * 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    {/* Confidence */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Confidence</span>
+                        <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
+                          {Math.round((data.confidence || 0) * 100)}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-purple-500 rounded-full transition-all duration-500"
+                          style={{ width: `${Math.round((data.confidence || 0) * 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Last Practiced */}
                 {data.mastery > 0 && (

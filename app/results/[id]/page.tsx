@@ -16,6 +16,7 @@ import {
     ChevronDown,
     ChevronUp,
     ChevronLeft,
+    AlertTriangle,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 
@@ -33,6 +34,8 @@ type QuestionResult = {
     correctAnswer: number;
     isCorrect: boolean;
     explanation: string;
+    error_type?: string; // NEW: Error taxonomy classification
+    error_explanation?: string; // NEW: Targeted error remediation
 }
 
 // Mock results data
@@ -76,6 +79,8 @@ const mockResults = {
             correctAnswer: 1,
             isCorrect: false,
             explanation: "The 'def' keyword is used to define a function in Python. Example: def my_function(): pass",
+            error_type: "SYNTAX_ERROR",
+            error_explanation: "Common misconception: Using JavaScript/Java syntax in Python. Python uses 'def', not 'function'.",
         },
         {
             id: 4,
@@ -108,6 +113,8 @@ const mockResults = {
             correctAnswer: 1,
             isCorrect: false,
             explanation: "The // operator performs floor division, which divides and rounds down to the nearest integer. The / operator performs regular division.",
+            error_type: "OFF_BY_ONE_ERROR",
+            error_explanation: "Confusing regular division (/) with floor division (//). This is a common arithmetic operator misconception.",
         },
         {
             id: 7,
@@ -147,6 +154,8 @@ const mockResults = {
             options: ["class", "Class", "def", "object"],
             selectedAnswer: 1,
             correctAnswer: 0,
+            error_type: "CASE_SENSITIVITY_ERROR",
+            error_explanation: "Python keywords are case-sensitive. 'class' (lowercase) is correct, 'Class' (uppercase) is not a keyword.",
             isCorrect: false,
             explanation: "The 'class' keyword (lowercase) is used to define a class in Python. Example: class MyClass: pass",
         },
@@ -318,30 +327,40 @@ export default function ResultsPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Areas to Improve - Scrollable */}
+                    {/* Error Patterns - NEW */}
                     <Card className="border-red-200 dark:border-red-800 bg-white dark:bg-slate-800 shadow-lg">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
                                 <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg">
-                                    <TrendingDown className="h-5 w-5 text-white" />
+                                    <AlertTriangle className="h-5 w-5 text-white" />
                                 </div>
-                                Areas to Improve
+                                Error Patterns
                             </CardTitle>
                             <CardDescription className="dark:text-slate-400">
-                                Topics that need more practice
+                                Common mistakes detected
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="max-h-[300px] overflow-y-auto pr-2 space-y-3">
-                                {results.weakTopics.map((topic: TopicResult, index: number) => (
-                                    <div key={index} className="space-y-2">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="font-medium">{topic.name}</span>
-                                            <span className="text-red-600 dark:text-red-400 font-semibold">{topic.accuracy}%</span>
+                                {results.questions
+                                    .filter((q: QuestionResult) => !q.isCorrect && q.error_type)
+                                    .map((q: QuestionResult, index: number) => (
+                                        <div key={index} className="p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-red-600 text-white">
+                                                    {q.error_type}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-red-800 dark:text-red-300">
+                                                {q.error_explanation}
+                                            </p>
                                         </div>
-                                        <Progress value={topic.accuracy} className="h-2" />
-                                    </div>
-                                ))}
+                                    ))}
+                                {results.questions.filter((q: QuestionResult) => !q.isCorrect && q.error_type).length === 0 && (
+                                    <p className="text-center text-slate-600 dark:text-slate-400 py-4 text-sm">
+                                        No error patterns detected. Great job!
+                                    </p>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -505,6 +524,26 @@ export default function ResultsPage() {
                                                 {question.explanation}
                                             </p>
                                         </div>
+
+                                        {/* Error Pattern Analysis - Only for incorrect answers */}
+                                        {!question.isCorrect && question.error_type && (
+                                            <div className="bg-red-50 dark:bg-red-950/30 border-2 border-red-200 dark:border-red-900 p-4 rounded-lg">
+                                                <div className="text-sm font-semibold mb-2 flex items-center gap-2 text-red-900 dark:text-red-200">
+                                                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                                                    Error Pattern Detected
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="inline-block px-2 py-1 rounded text-xs font-bold bg-red-600 text-white">
+                                                            {question.error_type}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-sm text-red-800 dark:text-red-300">
+                                                        {question.error_explanation}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
                                     </CardContent>
                                 )}
                             </Card>

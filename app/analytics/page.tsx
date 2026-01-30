@@ -31,14 +31,14 @@ export default function AnalyticsPage() {
   // TODO: In production, fetch from API - POST /api/state-vector
   // Mock mastery data for current language
   const mockMasteryData = {
-    UNIV_VAR: { mastery: 0.82, last_practiced: "2026-01-05T10:00:00Z", days_passed: 1 },
-    UNIV_COND: { mastery: 0.68, last_practiced: "2026-01-03T14:00:00Z", days_passed: 3 },
-    UNIV_LOOP: { mastery: 0.45, last_practiced: "2025-12-28T09:00:00Z", days_passed: 9 },
-    UNIV_FUNC: { mastery: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
-    UNIV_COLL: { mastery: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
-    UNIV_ERR: { mastery: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
-    UNIV_OOP_BASIC: { mastery: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
-    UNIV_OOP_ADV: { mastery: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
+    UNIV_VAR: { mastery: 0.82, fluency: 0.75, confidence: 0.88, last_practiced: "2026-01-05T10:00:00Z", days_passed: 1 },
+    UNIV_COND: { mastery: 0.68, fluency: 0.70, confidence: 0.65, last_practiced: "2026-01-03T14:00:00Z", days_passed: 3 },
+    UNIV_LOOP: { mastery: 0.45, fluency: 0.50, confidence: 0.42, last_practiced: "2025-12-28T09:00:00Z", days_passed: 9 },
+    UNIV_FUNC: { mastery: 0.0, fluency: 0.0, confidence: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
+    UNIV_COLL: { mastery: 0.0, fluency: 0.0, confidence: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
+    UNIV_ERR: { mastery: 0.0, fluency: 0.0, confidence: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
+    UNIV_OOP_BASIC: { mastery: 0.0, fluency: 0.0, confidence: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
+    UNIV_OOP_ADV: { mastery: 0.0, fluency: 0.0, confidence: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
   }
 
   // TODO: In production, fetch from API - GET /api/sessions/recent
@@ -85,6 +85,12 @@ export default function AnalyticsPage() {
     const avgMastery = practiced.length > 0 
       ? practiced.reduce((acc, c) => acc + c.mastery, 0) / practiced.length 
       : 0
+    const avgFluency = practiced.length > 0
+      ? practiced.reduce((acc, c) => acc + c.fluency, 0) / practiced.length
+      : 0
+    const avgConfidence = practiced.length > 0
+      ? practiced.reduce((acc, c) => acc + c.confidence, 0) / practiced.length
+      : 0
     
     const totalSessions = mockRecentSessions.length
     const avgScore = mockRecentSessions.length > 0
@@ -94,6 +100,8 @@ export default function AnalyticsPage() {
     return {
       conceptsPracticed: practiced.length,
       avgMastery: Math.round(avgMastery * 100),
+      avgFluency: Math.round(avgFluency * 100),
+      avgConfidence: Math.round(avgConfidence * 100),
       totalSessions,
       avgScore: Math.round(avgScore * 100),
     }
@@ -143,7 +151,7 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Analytics Stats */}
-          <div className="grid gap-6 md:grid-cols-4 mb-8">
+          <div className="grid gap-6 md:grid-cols-3 lg:grid-cols-6 mb-8">
             <Card className="relative overflow-hidden border-2 border-purple-100 dark:border-purple-900/50 hover:border-purple-500 dark:hover:border-purple-400 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/20 group bg-white dark:bg-slate-800">
               <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-500/20 to-transparent rounded-bl-full"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -173,13 +181,41 @@ export default function AnalyticsPage() {
             <Card className="relative overflow-hidden border-2 border-green-100 dark:border-green-900/50 hover:border-green-500 dark:hover:border-green-400 transition-all duration-300 hover:shadow-xl hover:shadow-green-500/20 group bg-white dark:bg-slate-800">
               <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-green-500/20 to-transparent rounded-bl-full"></div>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Total Sessions</CardTitle>
+                <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Avg Fluency</CardTitle>
                 <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-green-600 to-green-500 flex items-center justify-center shadow-lg shadow-green-500/50 group-hover:scale-110 transition-transform">
+                  <Clock className="h-5 w-5 text-white" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-black text-green-600 dark:text-green-400">{stats.avgFluency}%</div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Time Efficiency</p>
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-2 border-purple-100 dark:border-purple-900/50 hover:border-purple-500 dark:hover:border-purple-400 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/20 group bg-white dark:bg-slate-800">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-500/20 to-transparent rounded-bl-full"></div>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Avg Confidence</CardTitle>
+                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shadow-lg shadow-purple-500/50 group-hover:scale-110 transition-transform">
+                  <TrendingUp className="h-5 w-5 text-white" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-black text-purple-600 dark:text-purple-400">{stats.avgConfidence}%</div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Score Stability</p>
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-2 border-cyan-100 dark:border-cyan-900/50 hover:border-cyan-500 dark:hover:border-cyan-400 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/20 group bg-white dark:bg-slate-800">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-cyan-500/20 to-transparent rounded-bl-full"></div>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Total Sessions</CardTitle>
+                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-cyan-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-cyan-500/50 group-hover:scale-110 transition-transform">
                   <BarChart3 className="h-5 w-5 text-white" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-black text-green-600 dark:text-green-400">{stats.totalSessions}</div>
+                <div className="text-3xl font-black text-cyan-600 dark:text-cyan-400">{stats.totalSessions}</div>
               </CardContent>
             </Card>
 
@@ -188,7 +224,7 @@ export default function AnalyticsPage() {
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Avg Score</CardTitle>
                 <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-yellow-500 to-yellow-400 flex items-center justify-center shadow-lg shadow-yellow-500/50 group-hover:scale-110 transition-transform">
-                  <Clock className="h-5 w-5 text-slate-900" />
+                  <Target className="h-5 w-5 text-slate-900" />
                 </div>
               </CardHeader>
               <CardContent>
