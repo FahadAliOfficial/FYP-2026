@@ -7,6 +7,7 @@ import { LayoutDashboard, BookOpen, Settings, LogOut, X, Brain, Menu, Sparkles, 
 import { Button } from "./ui/button"
 import { ThemeToggle } from "./theme-toggle"
 import { useState } from "react"
+import { useAuth } from "@/lib/contexts/auth-context"
 
 interface SidebarProps {
   isOpen?: boolean
@@ -60,6 +61,13 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname()
   const siteName = process.env.NEXT_PUBLIC_SITE_NAME || "LearnRL"
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const { logout } = useAuth()
+
+  const handleLogout = () => {
+    logout()
+    onClose?.()
+    setIsMobileOpen(false)
+  }
 
   return (
     <>
@@ -174,17 +182,13 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             </div>
             
             {/* Logout Button */}
-            <Link
-              href="/login"
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition-all"
-              onClick={() => {
-                onClose?.()
-                setIsMobileOpen(false)
-              }}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition-all w-full text-left"
             >
               <LogOut className="h-5 w-5" />
               <span>Logout</span>
-            </Link>
+            </button>
           </div>
         </div>
       </aside>
