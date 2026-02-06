@@ -1,12 +1,14 @@
 "use client"
 
 import { useState } from "react"
+import { ProtectedRoute } from "@/components/protected-route"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Search, MessageSquare, CheckCircle, Clock, Mail, User } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
+// TODO: Add role-based access control when backend supports admin roles
 export default function UserQueriesPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -154,7 +156,8 @@ export default function UserQueriesPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <ProtectedRoute>
+      <div className="space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-4xl font-black mb-2 bg-gradient-to-r from-red-600 via-orange-500 to-red-600 bg-clip-text text-transparent">
@@ -389,5 +392,6 @@ export default function UserQueriesPage() {
         </CardContent>
       </Card>
     </div>
+    </ProtectedRoute>
   )
 }

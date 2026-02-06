@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { ProtectedRoute } from "@/components/protected-route"
 import { Sidebar } from "@/components/sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -53,7 +54,7 @@ const mockLearningCards = [
   },
 ]
 
-export default function LearningsPage() {
+function LearningsPage() {
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -351,5 +352,13 @@ export default function LearningsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function LearningsPageWrapper() {
+  return (
+    <ProtectedRoute>
+      <LearningsPage />
+    </ProtectedRoute>
   )
 }

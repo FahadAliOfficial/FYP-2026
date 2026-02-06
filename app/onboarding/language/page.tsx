@@ -1,10 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Brain, ArrowRight, CheckCircle2, Sparkles } from "lucide-react"
+import { Brain, ArrowRight, CheckCircle2, Sparkles, Loader2 } from "lucide-react"
+import * as authAPI from "@/lib/api/auth"
+import type { LanguageId, ExperienceLevel } from "@/lib/types/auth"
+import { ProtectedRoute } from "@/components/protected-route"
+import { useAuth } from "@/lib/contexts/auth-context"
 
 const languages = [
   {
@@ -96,37 +100,52 @@ const difficultyLevels = [
   },
 ]
 
-export default function LanguageSelectionPage() {
+function LanguageSelectionPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null)
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const siteName = process.env.NEXT_PUBLIC_SITE_NAME || "LearnRL"
 
-  const handleContinue = () => {
-    if (selectedLanguage && selectedDifficulty) {
-      // TODO: Call API - POST /api/user/set-language
-      // Expected payload: { user_id, language_id: selectedLanguage, difficulty_level: selectedDifficulty }
-      // Expected response: { success: true, language_id, difficulty_level }
+  // Redirect to dashboard if user has already completed onboarding
+  useEffect(() => {
+    if (user && user.last_active_language) {
+      router.push('/dashboard')
+    }
+  }, [user, router])
 
-      // Store selected language and difficulty in localStorage
+  const handleContinue = async () => {
+    if (!selectedLanguage || !selectedDifficulty) return
+    
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      // Fix: TypeScript uses typescript_5 in backend, but UI shows "typescript"
+      const languageId = (selectedLanguage === "typescript" ? "typescript_5" : selectedLanguage) as LanguageId
+      const experienceLevel = selectedDifficulty as ExperienceLevel
+      
+      // Call API to update user profile
+      await authAPI.updateProfile({
+        language_id: languageId,
+        experience_level: experienceLevel,
+      })
+      
+      // Also store in localStorage for immediate UI access
       if (typeof window !== 'undefined') {
-        localStorage.setItem('selectedLanguage', selectedLanguage)
-        localStorage.setItem('difficultyLevel', selectedDifficulty)
-        
-        // Get pending user data from registration
-        const pendingUser = sessionStorage.getItem('pendingUser')
-        if (pendingUser) {
-          const userData = JSON.parse(pendingUser)
-          localStorage.setItem('user', JSON.stringify({
-            ...userData,
-            language_id: selectedLanguage
-          }))
-          sessionStorage.removeItem('pendingUser')
-        }
+        localStorage.setItem('selectedLanguage', languageId)
+        localStorage.setItem('experienceLevel', experienceLevel)
       }
 
-      // Redirect to dashboard
+      // Redirect to dashboard after successful update
       router.push("/dashboard")
+      
+    } catch (err: any) {
+      console.error('Failed to update profile:', err)
+      setError(err.data?.detail || 'Failed to save preferences. Please try again.')
+      setIsLoading(false)
     }
   }
 
@@ -301,25 +320,33 @@ export default function LanguageSelectionPage() {
                   variant="outline"
                   onClick={() => router.push("/login")}
                   className="border-slate-300 dark:border-slate-600"
+                  disabled={isLoading}
                 >
                   Back to Login
                 </Button>
                 <Button
-                  disabled={!selectedLanguage || !selectedDifficulty}
+                  disabled={!selectedLanguage || !selectedDifficulty || isLoading}
                   onClick={handleContinue}
                   className={`
                     h-12 px-8 text-base font-semibold shadow-lg transition-all
-                    ${selectedLanguage && selectedDifficulty
+                    ${selectedLanguage && selectedDifficulty && !isLoading
                       ? 'bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-500 hover:to-green-400 shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-105' 
                       : 'bg-slate-300 dark:bg-slate-700'
                     }
                   `}
                 >
-                  Continue to Dashboard
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  {isLoading ? 'Saving...' : 'Continue to Dashboard'}
+                  {!isLoading && <ArrowRight className="ml-2 h-5 w-5" />}
                 </Button>
               </div>
             </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </div>
+            )}
 
             {/* Additional Options */}
             <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 text-center">
@@ -334,5 +361,13 @@ export default function LanguageSelectionPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function OnboardingPageWrapper() {
+  return (
+    <ProtectedRoute>
+      <LanguageSelectionPage />
+    </ProtectedRoute>
   )
 }

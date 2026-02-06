@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { ProtectedRoute } from "@/components/protected-route"
 import { Navbar } from "@/components/navbar"
 import { Sidebar } from "@/components/sidebar"
 import { MasteryHeatmap } from "@/components/mastery-heatmap"
@@ -14,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Code2, Play, BookOpen, TrendingUp, Plus, Globe } from "lucide-react"
+import { useAuth } from "@/lib/contexts/auth-context"
 
 const languageMap: Record<string, { name: string; logo: string; color: string }> = {
   python_3: { name: "Python", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg", color: "from-blue-500 to-blue-600" },
@@ -204,8 +206,9 @@ export default function DashboardPage() {
   const currentLangData = languageMap[currentLanguage]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="md:pl-64">
         <main className="container mx-auto px-4 py-8">
@@ -463,6 +466,7 @@ export default function DashboardPage() {
           </Card>
         </main>
       </div>
-    </div>
+      </div>
+    </ProtectedRoute>
   )
 }

@@ -7,39 +7,65 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Brain, ArrowRight, Mail, Lock, Sparkles } from "lucide-react"
+import { Brain, ArrowRight, Mail, Lock, Sparkles, AlertCircle, Loader2 } from "lucide-react"
+import { useAuth } from "@/lib/contexts/auth-context"
+import { z } from "zod"
+
+// Validation schema
+const loginSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const router = useRouter()
-  const [formData, setFormData] = useState({
+  const { login, isLoading, error: authError, clearError } = useAuth()
+  
+  const [formData, setFormData] = useState<LoginFormData>({
     email: "",
     password: "",
   })
+  
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
   const siteName = process.env.NEXT_PUBLIC_SITE_NAME || "LearnRL"
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Call API - POST /api/user/login
-    // Expected payload: { email, password }
-    // Expected response: { user_id, token, language_id }
     
-    console.log("Login submitted:", formData)
+    // Clear previous errors
+    setValidationErrors({})
+    clearError()
     
-    // Check if user has selected a language
-    if (typeof window !== 'undefined') {
-      const selectedLanguage = localStorage.getItem('selectedLanguage')
+    // Validate form with Zod
+    const validation = loginSchema.safeParse(formData)
+    
+    if (!validation.success) {
+      // Convert Zod errors to field-level errors
+      const errors: Record<string, string> = {}
+      validation.error.issues.forEach((issue) => {
+        if (issue.path[0]) {
+          errors[issue.path[0].toString()] = issue.message
+        }
+      })
+      setValidationErrors(errors)
+      return
+    }
+    
+    try {
+      // Call login API via AuthContext
+      await login({
+        email: formData.email,
+        password: formData.password,
+      })
       
-      // TODO: In production, check language from API response
-      // If API returns language_id, store it in localStorage
+      // Redirect is handled in AuthContext based on user.last_active_language
       
-      if (!selectedLanguage) {
-        // User hasn't selected language yet, redirect to onboarding
-        router.push("/onboarding/language")
-      } else {
-        // User has language selected, go to dashboard
-        router.push("/dashboard")
-      }
+    } catch (err: any) {
+      // Error handling is done in AuthContext
+      console.error('Login failed:', err)
     }
   }
 
@@ -82,6 +108,18 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Error Alert */}
+            {(authError || Object.keys(validationErrors).length > 0) && (
+              <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-red-800 dark:text-red-200">
+                    {authError || "Please fix the errors below"}
+                  </p>
+                </div>
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-semibold text-slate-700 dark:text-slate-300">Email</Label>
@@ -94,9 +132,15 @@ export default function LoginPage() {
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required
-                    className="h-12 pl-10 border-slate-300 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400"
+                    className={`h-12 pl-10 border-slate-300 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 ${
+                      validationErrors.email ? 'border-red-500' : ''
+                    }`}
+                    disabled={isLoading}
                   />
                 </div>
+                {validationErrors.email && (
+                  <p className="text-sm text-red-600 dark:text-red-400">{validationErrors.email}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -118,14 +162,34 @@ export default function LoginPage() {
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     required
-                    className="h-12 pl-10 border-slate-300 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400"
+                    className={`h-12 pl-10 border-slate-300 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 ${
+                      validationErrors.password ? 'border-red-500' : ''
+                    }`}
+                    disabled={isLoading}
                   />
                 </div>
+                {validationErrors.password && (
+                  <p className="text-sm text-red-600 dark:text-red-400">{validationErrors.password}</p>
+                )}
               </div>
 
-              <Button type="submit" className="w-full h-12 text-base font-bold bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-500 hover:to-green-400 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300" size="lg">
-                Sign In
-                <ArrowRight className="ml-2 h-5 w-5" />
+              <Button 
+                type="submit" 
+                disabled={isLoading}
+                className="w-full h-12 text-base font-bold bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-500 hover:to-green-400 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300" 
+                size="lg"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Signing In...
+                  </>
+                ) : (
+                  <>
+                    Sign In
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </>
+                )}
               </Button>
 
               <div className="relative">

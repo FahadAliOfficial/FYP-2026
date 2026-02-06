@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { ProtectedRoute } from "@/components/protected-route"
 import { Sidebar } from "@/components/sidebar"
 import { MasteryHeatmap } from "@/components/mastery-heatmap"
 import { RecentSessions } from "@/components/recent-sessions"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart3, TrendingUp, Target, Clock } from "lucide-react"
 
-export default function AnalyticsPage() {
+function AnalyticsPage() {
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [currentLanguage, setCurrentLanguage] = useState<string | null>(null)
@@ -252,5 +253,13 @@ export default function AnalyticsPage() {
         </main>
       </div>
     </div>
+  )
+}
+
+export default function AnalyticsPageWrapper() {
+  return (
+    <ProtectedRoute>
+      <AnalyticsPage />
+    </ProtectedRoute>
   )
 }

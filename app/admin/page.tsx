@@ -1,8 +1,10 @@
 "use client"
 
+import { ProtectedRoute } from "@/components/protected-route"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, Database, Flag, MessageSquare, TrendingUp, Activity, UserCheck, AlertCircle } from "lucide-react"
 
+// TODO: Add role-based access control when backend supports admin roles
 export default function AdminDashboard() {
   // TODO: In production, fetch from API - GET /api/admin/analytics
   const mockAnalytics = {
@@ -109,7 +111,8 @@ export default function AdminDashboard() {
   ]
 
   return (
-    <div className="space-y-8">
+    <ProtectedRoute>
+      <div className="space-y-8">
       {/* Header */}
       <div className="relative">
         <div className="absolute -top-4 left-0 w-32 h-32 bg-red-500/20 rounded-full filter blur-3xl"></div>
@@ -251,5 +254,6 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
     </div>
+    </ProtectedRoute>
   )
 }

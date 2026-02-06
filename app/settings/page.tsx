@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { ProtectedRoute } from "@/components/protected-route"
 import { Sidebar } from "@/components/sidebar"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { User, Bell, Shield, Palette, Save } from "lucide-react"
 
-export default function SettingsPage() {
+function SettingsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [profileData, setProfileData] = useState({
     name: "John Doe",
@@ -341,5 +342,13 @@ export default function SettingsPage() {
         </main>
       </div>
     </div>
+  )
+}
+
+export default function SettingsPageWrapper() {
+  return (
+    <ProtectedRoute>
+      <SettingsPage />
+    </ProtectedRoute>
   )
 }

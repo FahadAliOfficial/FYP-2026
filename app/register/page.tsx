@@ -1,43 +1,78 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Brain, ArrowRight, Mail, Lock, User, Sparkles } from "lucide-react"
+import { Brain, ArrowRight, Mail, Lock, Sparkles, AlertCircle, Loader2 } from "lucide-react"
+import { useAuth } from "@/lib/contexts/auth-context"
+import { formatAPIError } from "@/lib/api/client"
+import { z } from "zod"
+
+// Validation schema
+const registerSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string()
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter()
-  const [formData, setFormData] = useState({
-    name: "",
+  const { register: registerAuth, isLoading, error: authError, clearError } = useAuth()
+  
+  const [formData, setFormData] = useState<RegisterFormData>({
     email: "",
     password: "",
     confirmPassword: "",
   })
+  
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
   const siteName = process.env.NEXT_PUBLIC_SITE_NAME || "LearnRL"
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Call API - POST /api/user/register
-    // Expected payload: { name, email, password }
-    // Expected response: { user_id, token }
     
-    console.log("Registration submitted:", formData)
+    // Clear previous errors
+    setValidationErrors({})
+    clearError()
     
-    // Store user data temporarily for onboarding flow
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('pendingUser', JSON.stringify({
-        name: formData.name,
-        email: formData.email
-      }))
+    // Validate form with Zod
+    const validation = registerSchema.safeParse(formData)
+    
+    if (!validation.success) {
+      // Convert Zod errors to field-level errors
+      const errors: Record<string, string> = {}
+      validation.error.issues.forEach((err) => {
+        if (err.path[0]) {
+          errors[err.path[0].toString()] = err.message
+        }
+      })
+      setValidationErrors(errors)
+      return
     }
     
-    // Redirect to language selection onboarding
-    router.push("/onboarding/language")
+    try {
+      // Register without language and experience - user will set during onboarding
+      await registerAuth({
+        email: formData.email,
+        password: formData.password,
+      })
+      
+      // AuthContext will handle redirect to onboarding
+      
+    } catch (err: any) {
+      // Error handling is done in AuthContext
+      console.error('Registration failed:', err)
+    }
   }
 
   return (
@@ -79,23 +114,19 @@ export default function RegisterPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm font-semibold text-slate-700 dark:text-slate-300">Full Name</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="John Doe"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                    className="h-12 pl-10 border-slate-300 dark:border-slate-600 focus:border-green-500 dark:focus:border-green-400"
-                  />
+            {/* Error Alert */}
+            {(authError || Object.keys(validationErrors).length > 0) && (
+              <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-red-800 dark:text-red-200">
+                    {authError || "Please fix the errors below"}
+                  </p>
                 </div>
               </div>
-
+            )}
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-semibold text-slate-700 dark:text-slate-300">Email</Label>
                 <div className="relative">
@@ -107,9 +138,15 @@ export default function RegisterPage() {
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required
-                    className="h-12 pl-10 border-slate-300 dark:border-slate-600 focus:border-green-500 dark:focus:border-green-400"
+                    className={`h-12 pl-10 border-slate-300 dark:border-slate-600 focus:border-green-500 dark:focus:border-green-400 ${
+                      validationErrors.email ? 'border-red-500' : ''
+                    }`}
+                    disabled={isLoading}
                   />
                 </div>
+                {validationErrors.email && (
+                  <p className="text-sm text-red-600 dark:text-red-400">{validationErrors.email}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -123,9 +160,16 @@ export default function RegisterPage() {
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     required
-                    className="h-12 pl-10 border-slate-300 dark:border-slate-600 focus:border-green-500 dark:focus:border-green-400"
+                    className={`h-12 pl-10 border-slate-300 dark:border-slate-600 focus:border-green-500 dark:focus:border-green-400 ${
+                      validationErrors.password ? 'border-red-500' : ''
+                    }`}
+                    disabled={isLoading}
                   />
                 </div>
+                {validationErrors.password && (
+                  <p className="text-sm text-red-600 dark:text-red-400">{validationErrors.password}</p>
+                )}
+                <p className="text-xs text-slate-500 dark:text-slate-400">Must be at least 8 characters</p>
               </div>
 
               <div className="space-y-2">
@@ -139,14 +183,34 @@ export default function RegisterPage() {
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                     required
-                    className="h-12 pl-10 border-slate-300 dark:border-slate-600 focus:border-green-500 dark:focus:border-green-400"
+                    className={`h-12 pl-10 border-slate-300 dark:border-slate-600 focus:border-green-500 dark:focus:border-green-400 ${
+                      validationErrors.confirmPassword ? 'border-red-500' : ''
+                    }`}
+                    disabled={isLoading}
                   />
                 </div>
+                {validationErrors.confirmPassword && (
+                  <p className="text-sm text-red-600 dark:text-red-400">{validationErrors.confirmPassword}</p>
+                )}
               </div>
 
-              <Button type="submit" className="w-full h-12 text-base font-bold bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-400 hover:to-blue-500 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300" size="lg">
-                Create Account
-                <ArrowRight className="ml-2 h-5 w-5" />
+              <Button 
+                type="submit" 
+                disabled={isLoading}
+                className="w-full h-12 text-base font-bold bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-400 hover:to-blue-500 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300" 
+                size="lg"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Creating Account...
+                  </>
+                ) : (
+                  <>
+                    Create Account
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </>
+                )}
               </Button>
 
               <div className="relative">

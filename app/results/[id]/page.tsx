@@ -1,6 +1,7 @@
 "use client"
 
 import { useRouter, useParams } from "next/navigation"
+import { ProtectedRoute } from "@/components/protected-route"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -162,7 +163,7 @@ const mockResults = {
     ],
 }
 
-export default function ResultsPage() {
+function ResultsPage() {
     const router = useRouter()
     const params = useParams()
     const [expandedQuestion, setExpandedQuestion] = useState<number | null>(null)
@@ -573,5 +574,13 @@ export default function ResultsPage() {
                 </div>
             </div>
         </div>
+    )
+}
+
+export default function ResultsPageWrapper() {
+    return (
+        <ProtectedRoute>
+            <ResultsPage />
+        </ProtectedRoute>
     )
 }

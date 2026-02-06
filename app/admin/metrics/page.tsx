@@ -1,9 +1,11 @@
 "use client"
 
+import { ProtectedRoute } from "@/components/protected-route"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingDown, AlertTriangle, Clock, Target, Flag, Activity } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 
+// TODO: Add role-based access control when backend supports admin roles
 export default function QualityMetricsPage() {
   // TODO: In production, fetch from API - GET /api/admin/quality-metrics
   
@@ -154,7 +156,8 @@ export default function QualityMetricsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <ProtectedRoute>
+      <div className="space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-4xl font-black mb-2 bg-gradient-to-r from-red-600 via-orange-500 to-red-600 bg-clip-text text-transparent">
@@ -435,5 +438,6 @@ export default function QualityMetricsPage() {
         </CardContent>
       </Card>
     </div>
+    </ProtectedRoute>
   )
 }

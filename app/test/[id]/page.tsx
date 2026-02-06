@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams, useSearchParams } from "next/navigation"
+import { ProtectedRoute } from "@/components/protected-route"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -83,7 +84,7 @@ const mockQuestions = [
   },
 ]
 
-export default function TestPage() {
+function TestPage() {
   const router = useRouter()
   const params = useParams()
   const searchParams = useSearchParams()
@@ -446,5 +447,13 @@ export default function TestPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function TestPageWrapper() {
+  return (
+    <ProtectedRoute>
+      <TestPage />
+    </ProtectedRoute>
   )
 }
