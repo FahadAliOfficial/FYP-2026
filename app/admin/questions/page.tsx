@@ -1,105 +1,415 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { ProtectedRoute } from "@/components/protected-route"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Edit, Trash2, CheckCircle, XCircle, Filter, Code } from "lucide-react"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Slider } from "@/components/ui/slider"
+import { 
+  Search, Edit, Trash2, CheckCircle, XCircle, Filter, Code, 
+  AlertTriangle, TrendingDown, Plus, RefreshCw, BarChart3, Bell
+} from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  getAllQuestions,
+  getPendingQuestions,
+  getLowQualityQuestions,
+  updateQuestion,
+  deleteQuestion,
+  bulkActionQuestions,
+  approveQuestion,
+  rejectQuestion,
+  generateQuestions,
+  getQuestionAnalytics,
+  type AdminQuestion,
+  type AdminQuestionListResponse,
+  type QuestionFilters,
+  type QuestionGenerateRequest
+} from "@/lib/api/questions-admin"
+import {
+  getCurriculum,
+  getTopicsForLanguage,
+  type LanguageCurriculum,
+  type CurriculumTopic
+} from "@/lib/api/curriculum"
 
-// TODO: Add role-based access control when backend supports admin roles
+// Language display names
+const LANGUAGE_NAMES: Record<string, string> = {
+  python_3: "Python",
+  javascript_es6: "JavaScript",
+  java_17: "Java",
+  cpp_20: "C++",
+  go_1_21: "Go",
+  typescript_5: "TypeScript"
+}
+
 export default function QuestionBankPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [languageFilter, setLanguageFilter] = useState("all")
-  const [conceptFilter, setConceptFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
-
-  // TODO: In production, fetch from API - GET /api/admin/questions
-  const mockQuestions = [
-    {
-      id: 8923,
-      language: "Python",
-      concept: "UNIV_LOOP",
-      conceptName: "Loops",
-      subTopic: "for_loop_basics",
-      difficulty: 0.5,
-      question: "What will be the output of the following code?\n\nfor i in range(3):\n    print(i)",
-      options: ["0 1 2", "1 2 3", "0 1 2 3", "Error"],
-      correctAnswer: 0,
-      isVerified: true,
-      createdAt: "2026-01-15",
-      reportCount: 2,
-    },
-    {
-      id: 8924,
-      language: "JavaScript",
-      concept: "UNIV_COND",
-      conceptName: "Conditionals",
-      subTopic: "if_else_basics",
-      difficulty: 0.4,
-      question: "What does the following code output?\n\nlet x = 10;\nif (x > 5) {\n  console.log('A');\n} else {\n  console.log('B');\n}",
-      options: ["A", "B", "AB", "Error"],
-      correctAnswer: 0,
-      isVerified: true,
-      createdAt: "2026-01-20",
-      reportCount: 0,
-    },
-    {
-      id: 8925,
-      language: "Python",
-      concept: "UNIV_VAR",
-      conceptName: "Variables",
-      subTopic: "variable_scope",
-      difficulty: 0.65,
-      question: "What is the scope of variable 'x' in this code?\n\ndef func():\n    x = 5\n\nprint(x)",
-      options: ["Global", "Local to func", "Error", "Both global and local"],
-      correctAnswer: 2,
-      isVerified: false,
-      createdAt: "2026-01-28",
-      reportCount: 5,
-    },
-    {
-      id: 8926,
-      language: "Java",
-      concept: "UNIV_FUNC",
-      conceptName: "Functions",
-      subTopic: "function_parameters",
-      difficulty: 0.55,
-      question: "What will this method return?\n\npublic static int add(int a, int b) {\n    return a + b;\n}\n\nadd(3, 4);",
-      options: ["7", "34", "Error", "void"],
-      correctAnswer: 0,
-      isVerified: true,
-      createdAt: "2026-01-25",
-      reportCount: 1,
-    },
-  ]
-
-  const filteredQuestions = mockQuestions.filter(q => {
-    const matchesSearch = q.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         q.id.toString().includes(searchQuery)
-    const matchesLanguage = languageFilter === "all" || q.language === languageFilter
-    const matchesConcept = conceptFilter === "all" || q.concept === conceptFilter
-    const matchesStatus = statusFilter === "all" || 
-                         (statusFilter === "verified" && q.isVerified) ||
-                         (statusFilter === "unverified" && !q.isVerified) ||
-                         (statusFilter === "reported" && q.reportCount > 0)
-    return matchesSearch && matchesLanguage && matchesConcept && matchesStatus
+  const [activeTab, setActiveTab] = useState("all")
+  const [loading, setLoading] = useState(false)
+  
+  // Curriculum data
+  const [curriculum, setCurriculum] = useState<LanguageCurriculum[]>([])
+  const [availableTopics, setAvailableTopics] = useState<CurriculumTopic[]>([])
+  const [selectedTopic, setSelectedTopic] = useState<CurriculumTopic | null>(null)
+  
+  // All Questions state
+  const [allQuestions, setAllQuestions] = useState<AdminQuestion[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [verifiedCount, setVerifiedCount] = useState(0)
+  const [unverifiedCount, setUnverifiedCount] = useState(0)
+  const [currentPage, setCurrentPage] = useState(1)
+  
+  // Pending Questions state
+  const [pendingQuestions, setPendingQuestions] = useState<any[]>([])
+  const [pendingCount, setPendingCount] = useState(0)
+  
+  // Low Quality Questions state
+  const [lowQualityQuestions, setLowQualityQuestions] = useState<AdminQuestion[]>([])
+  const [lowQualityCount, setLowQualityCount] = useState(0)
+  
+  // Filters
+  const [filters, setFilters] = useState<QuestionFilters>({
+    page: 1,
+    limit: 20
   })
+  
+  // Selected questions for bulk actions
+  const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set())
+  
+  // Generation form
+  const [genForm, setGenForm] = useState<QuestionGenerateRequest>({
+    topic: "",
+    language_id: "python_3",
+    mapping_id: "UNIV_LOOP",
+    difficulty: 0.5,
+    count: 10,
+    sub_topic: ""
+  })
+  const [generating, setGenerating] = useState(false)
+  const [generationProgress, setGenerationProgress] = useState<{
+    active: boolean
+    total: number
+    generated: number
+    failed: number
+    taskId: string
+    initialPendingCount: number
+  } | null>(null)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [dismissedPopup, setDismissedPopup] = useState(false)
+  const [editingQuestion, setEditingQuestion] = useState<any>(null)
+  const notificationRef = useRef<HTMLDivElement>(null)
 
-  const handleEditQuestion = (questionId: number) => {
-    // TODO: Implement edit modal or navigate to edit page
-    console.log(`Edit question ${questionId}`)
+  // Load curriculum on mount
+  useEffect(() => {
+    loadCurriculum()
+  }, [])
+
+  // Load all tab data on initial mount to populate counts
+  useEffect(() => {
+    fetchAllQuestions()
+    fetchPendingQuestions()
+    fetchLowQualityQuestions()
+  }, []) // Run once on mount
+
+  // Update available topics when language changes
+  useEffect(() => {
+    if (curriculum.length > 0) {
+      const topics = getTopicsForLanguage(curriculum, genForm.language_id)
+      setAvailableTopics(topics)
+      
+      // Reset topic selection when language changes
+      setSelectedTopic(null)
+      setGenForm(prev => ({ ...prev, mapping_id: "", topic: "", sub_topic: "" }))
+    }
+  }, [genForm.language_id, curriculum])
+
+  const loadCurriculum = async () => {
+    const data = await getCurriculum()
+    setCurriculum(data)
   }
 
-  const handleDeleteQuestion = (questionId: number) => {
-    // TODO: Call API - DELETE /api/admin/questions/:id
-    console.log(`Delete question ${questionId}`)
+  // Refetch data when filters change or tab switches (but not on initial mount)
+  useEffect(() => {
+    // Skip initial mount (data already loaded above)
+    if (activeTab === "all") {
+      fetchAllQuestions()
+    } else if (activeTab === "pending") {
+      fetchPendingQuestions()
+    }
+  }, [activeTab, filters])
+
+  // Close notifications on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotifications(false)
+      }
+    }
+
+    if (showNotifications) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showNotifications])
+
+  // Auto-refresh when generation is active
+  useEffect(() => {
+    if (!generationProgress?.active) return
+
+    const interval = setInterval(async () => {
+      // Refresh all stats for real-time updates
+      await Promise.all([
+        fetchPendingQuestions(),
+        fetchAllQuestions(),
+        fetchLowQualityQuestions()
+      ])
+
+      // Update generated count based on new questions
+      const newGenerated = pendingCount - generationProgress.initialPendingCount
+      setGenerationProgress(prev => prev ? { ...prev, generated: newGenerated } : null)
+
+      // Check if generation is complete
+      const elapsed = Date.now() - (generationProgress as any).startTime
+      const estimatedTime = generationProgress.total * 4000 // 4 seconds per question
+      
+      if (elapsed > estimatedTime + 10000) {
+        // Generation complete - show summary
+        const actualGenerated = pendingCount - generationProgress.initialPendingCount
+        const failed = generationProgress.total - actualGenerated
+        
+        setGenerationProgress(null)
+        setGenerating(false)
+        setDismissedPopup(false)
+        
+        // Show completion report
+        alert(
+          `✅ Generation Complete!\n\n` +
+          `Total Requested: ${generationProgress.total}\n` +
+          `Successfully Generated: ${actualGenerated}\n` +
+          `Failed/Duplicates: ${failed}\n\n` +
+          `All questions are now in the "Pending Review" tab.\n` +
+          `Please review and approve them.`
+        )
+      }
+    }, 3000) // Refresh every 3 seconds
+
+    return () => clearInterval(interval)
+  }, [generationProgress, activeTab, pendingCount])
+
+  const fetchAllQuestions = async () => {
+    // Only show loading on initial/manual fetch, not during auto-refresh
+    if (!generationProgress?.active) {
+      setLoading(true)
+    }
+    try {
+      const response = await getAllQuestions(filters)
+      setAllQuestions(response.questions)
+      setTotalCount(response.total_count)
+      setVerifiedCount(response.verified_count)
+      setUnverifiedCount(response.unverified_count)
+    } catch (error) {
+      console.error("Failed to fetch questions:", error)
+    } finally {
+      if (!generationProgress?.active) {
+        setLoading(false)
+      }
+    }
   }
 
-  const handleToggleVerification = (questionId: number, currentStatus: boolean) => {
-    // TODO: Call API - PATCH /api/admin/questions/:id/verify
-    console.log(`Toggle verification for question ${questionId}, current: ${currentStatus}`)
+  const fetchPendingQuestions = async () => {
+    // Only show loading on initial/manual fetch, not during auto-refresh
+    if (!generationProgress?.active) {
+      setLoading(true)
+    }
+    try {
+      const response = await getPendingQuestions(filters.language_id, filters.mapping_id, 50)
+      setPendingQuestions(response.questions)
+      setPendingCount(response.total_pending)
+    } catch (error) {
+      console.error("Failed to fetch pending questions:", error)
+    } finally {
+      if (!generationProgress?.active) {
+        setLoading(false)
+      }
+    }
+  }
+
+  const fetchLowQualityQuestions = async () => {
+    // Only show loading on initial/manual fetch, not during auto-refresh
+    if (!generationProgress?.active) {
+      setLoading(true)
+    }
+    try {
+      const response = await getLowQualityQuestions(50)
+      setLowQualityQuestions(response.questions)
+      setLowQualityCount(response.total_count)
+    } catch (error) {
+      console.error("Failed to fetch low quality questions:", error)
+    } finally {
+      if (!generationProgress?.active) {
+        setLoading(false)
+      }
+    }
+  }
+
+  const handleDelete = async (questionId: string) => {
+    if (!confirm("Are you sure you want to delete this question? This action cannot be undone.")) {
+      return
+    }
+    
+    try {
+      await deleteQuestion(questionId)
+      // Refresh current view
+      if (activeTab === "all") fetchAllQuestions()
+      else if (activeTab === "low-quality") fetchLowQualityQuestions()
+    } catch (error) {
+      console.error("Failed to delete question:", error)
+      alert("Failed to delete question")
+    }
+  }
+
+  const handleApprove = async (questionId: string) => {
+    try {
+      await approveQuestion(questionId)
+      fetchPendingQuestions()
+    } catch (error) {
+      console.error("Failed to approve question:", error)
+      alert("Failed to approve question")
+    }
+  }
+
+  const handleReject = async (questionId: string) => {
+    if (!confirm("Are you sure you want to reject and delete this question?")) {
+      return
+    }
+    
+    try {
+      await rejectQuestion(questionId)
+      fetchPendingQuestions()
+    } catch (error) {
+      console.error("Failed to reject question:", error)
+      alert("Failed to reject question")
+    }
+  }
+
+  const handleUpdate = async (questionId: string, updates: any) => {
+    try {
+      await updateQuestion(questionId, updates)
+      setEditingQuestion(null)
+      fetchAllQuestions()
+      fetchPendingQuestions()
+      alert("Question updated successfully!")
+    } catch (error) {
+      console.error("Failed to update question:", error)
+      alert("Failed to update question")
+    }
+  }
+
+  const handleBulkApprove = async () => {
+    if (selectedQuestions.size === 0) return
+    
+    try {
+      await bulkActionQuestions({
+        question_ids: Array.from(selectedQuestions),
+        action: "approve"
+      })
+      setSelectedQuestions(new Set())
+      fetchAllQuestions()
+    } catch (error) {
+      console.error("Failed to bulk approve:", error)
+      alert("Failed to bulk approve questions")
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedQuestions.size === 0) return
+    if (!confirm(`Delete ${selectedQuestions.size} questions permanently?`)) return
+    
+    try {
+      await bulkActionQuestions({
+        question_ids: Array.from(selectedQuestions),
+        action: "delete"
+      })
+      setSelectedQuestions(new Set())
+      fetchAllQuestions()
+    } catch (error) {
+      console.error("Failed to bulk delete:", error)
+      alert("Failed to bulk delete questions")
+    }
+  }
+
+  const handleGenerate = async () => {
+    if (!genForm.topic || !genForm.mapping_id) {
+      alert("Please select a topic")
+      return
+    }
+    
+    setGenerating(true)
+    try {
+      const response = await generateQuestions(genForm)
+      
+      // Set generation progress tracker
+      setGenerationProgress({
+        active: true,
+        total: genForm.count,
+        generated: 0,
+        failed: 0,
+        taskId: response.task_id,
+        initialPendingCount: pendingCount,
+        startTime: Date.now()
+      } as any)
+      setDismissedPopup(false)
+      
+      // Switch to pending tab to see questions appear
+      setActiveTab("pending")
+      
+      // Reset form
+      const currentLang = genForm.language_id
+      setGenForm({
+        topic: "",
+        language_id: currentLang, // Keep language
+        mapping_id: "",
+        difficulty: 0.5,
+        count: 10,
+        sub_topic: ""
+      })
+      setSelectedTopic(null)
+    } catch (error) {
+      console.error("Failed to generate questions:", error)
+      alert("Failed to generate questions")
+      setGenerating(false)
+    }
+  }
+
+  const handleTopicChange = (topicName: string) => {
+    const topic = availableTopics.find(t => t.name === topicName)
+    if (topic) {
+      setSelectedTopic(topic)
+      setGenForm({
+        ...genForm,
+        topic: topic.name,
+        mapping_id: topic.mapping_id,
+        sub_topic: "" // Reset subtopic when topic changes
+      })
+    }
+  }
+
+  const toggleSelectQuestion = (questionId: string) => {
+    const newSet = new Set(selectedQuestions)
+    if (newSet.has(questionId)) {
+      newSet.delete(questionId)
+    } else {
+      newSet.add(questionId)
+    }
+    setSelectedQuestions(newSet)
   }
 
   const getDifficultyLabel = (difficulty: number) => {
@@ -108,226 +418,757 @@ export default function QuestionBankPage() {
     return { label: "Hard", color: "text-red-600 dark:text-red-400" }
   }
 
+  const renderQuestionCard = (q: AdminQuestion, showActions = true, isPending = false) => {
+    const difficultyInfo = getDifficultyLabel(q.difficulty)
+    const accuracyRate = q.times_used > 0 ? ((q.times_correct / q.times_used) * 100).toFixed(1) : "N/A"
+
+    return (
+      <div
+        key={q.id}
+        className="p-4 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all bg-slate-50 dark:bg-slate-800/50"
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 mb-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            {showActions && !isPending && (
+              <input
+                type="checkbox"
+                checked={selectedQuestions.has(q.id)}
+                onChange={() => toggleSelectQuestion(q.id)}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+            )}
+            <span className="px-3 py-1 rounded-full bg-slate-900 dark:bg-slate-700 text-white text-xs font-bold">
+              {q.id.slice(0, 8)}
+            </span>
+            <Badge variant="outline" className="bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400">
+              {LANGUAGE_NAMES[q.language_id] || q.language_id}
+            </Badge>
+            <Badge variant="outline" className="bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-400">
+              {q.mapping_id}
+            </Badge>
+            <Badge className={difficultyInfo.color}>
+              {difficultyInfo.label}
+            </Badge>
+            {q.is_verified ? (
+              <Badge className="bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Verified
+              </Badge>
+            ) : (
+              <Badge className="bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400">
+                <XCircle className="h-3 w-3 mr-1" />
+                Pending
+              </Badge>
+            )}
+            <Badge variant="outline">
+              Quality: {(q.quality_score * 100).toFixed(0)}%
+            </Badge>
+            {q.times_used > 0 && (
+              <Badge variant="outline">
+                Used: {q.times_used} | Accuracy: {accuracyRate}%
+              </Badge>
+            )}
+          </div>
+          <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
+            {new Date(q.created_at).toLocaleDateString()}
+          </span>
+        </div>
+
+        {/* Question Content */}
+        <div className="mb-3">
+          <pre className="text-sm text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-900 p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-sans">
+            {q.question_data.question_text}
+          </pre>
+          {q.question_data.code_snippet && (
+            <pre className="mt-2 text-sm font-mono bg-slate-800 dark:bg-black text-green-400 dark:text-green-300 p-3 rounded-lg overflow-x-auto">
+              <code>{q.question_data.code_snippet}</code>
+            </pre>
+          )}
+        </div>
+
+        {/* Options */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
+          {q.question_data.options.map((option, index) => (
+            <div
+              key={index}
+              className={`p-2 rounded text-sm ${
+                option.is_correct
+                  ? "bg-green-100 dark:bg-green-950 text-green-900 dark:text-green-400 font-semibold border-2 border-green-500"
+                  : "bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300"
+              }`}
+            >
+              <span className="font-bold mr-2">{option.id}.</span>
+              {option.text}
+            </div>
+          ))}
+        </div>
+
+        {/* Explanation */}
+        {q.question_data.explanation && (
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border-l-4 border-blue-500 rounded">
+            <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-1">💡 Explanation</p>
+            <p className="text-sm text-slate-700 dark:text-slate-300">
+              {q.question_data.explanation}
+            </p>
+          </div>
+        )}
+
+        {/* Actions */}
+        {showActions && (
+          <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-700">
+            <div className="text-xs text-slate-600 dark:text-slate-400">
+              {q.sub_topic && (
+                <>Sub-topic: <span className="font-semibold">{q.sub_topic}</span></>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {isPending ? (
+                <>
+                  <Button
+                    size="sm"
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                    onClick={() => handleApprove(q.id)}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Approve
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditingQuestion(q)}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleReject(q.id)}
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Reject
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditingQuestion(q)}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDelete(q.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <ProtectedRoute>
-      <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-4xl font-black mb-2 bg-gradient-to-r from-red-600 via-orange-500 to-red-600 bg-clip-text text-transparent">
-          Question Bank
-        </h1>
-        <p className="text-lg text-slate-600 dark:text-slate-300">
-          Browse and manage all platform questions
-        </p>
-      </div>
-
-      {/* Filters */}
-      <Card className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="relative lg:col-span-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="Search by question ID or content..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+      {/* Generation Progress Indicator */}
+      {generationProgress?.active && !dismissedPopup && (
+        <div className="fixed top-20 right-6 z-50 bg-white dark:bg-slate-800 border-2 border-orange-500 rounded-lg shadow-2xl p-4 min-w-[280px] animate-in slide-in-from-right">
+          <div className="flex items-start gap-3">
+            <div className="relative">
+              <RefreshCw className="h-8 w-8 text-orange-500 animate-spin" />
+              <div className="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full animate-pulse" />
             </div>
-            <Select value={languageFilter} onValueChange={setLanguageFilter}>
-              <SelectTrigger>
-                <Code className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="All Languages" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Languages</SelectItem>
-                <SelectItem value="Python">Python</SelectItem>
-                <SelectItem value="JavaScript">JavaScript</SelectItem>
-                <SelectItem value="Java">Java</SelectItem>
-                <SelectItem value="C++">C++</SelectItem>
-                <SelectItem value="TypeScript">TypeScript</SelectItem>
-                <SelectItem value="Go">Go</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="verified">Verified</SelectItem>
-                <SelectItem value="unverified">Unverified</SelectItem>
-                <SelectItem value="reported">Reported</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex-1">
+              <h3 className="font-bold text-slate-900 dark:text-white mb-1">
+                Generating Questions
+              </h3>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-600 dark:text-slate-400">Requested:</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">{generationProgress.total}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600 dark:text-slate-400">Generated:</span>
+                  <span className="font-semibold text-green-600 dark:text-green-400">{generationProgress.generated}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600 dark:text-slate-400">Remaining:</span>
+                  <span className="font-semibold text-orange-600 dark:text-orange-400">
+                    {Math.max(0, generationProgress.total - generationProgress.generated)}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-2 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-orange-500 to-red-500 transition-all duration-500"
+                  style={{ width: `${(pendingCount / generationProgress.total) * 100}%` }}
+                />
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                Task ID: {generationProgress.taskId.slice(0, 8)}
+              </p>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full mt-3 text-xs"
+            onClick={() => {
+              setDismissedPopup(true)
+            }}
+          >
+            Minimize
+          </Button>
+        </div>
+      )}
 
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-2 border-blue-200 dark:border-blue-900 bg-white dark:bg-slate-800">
-          <CardContent className="pt-6">
-            <p className="text-sm text-slate-600 dark:text-slate-400">Total Questions</p>
-            <p className="text-3xl font-black text-blue-600 dark:text-blue-400">
-              {mockQuestions.length}
+      <div className="space-y-8">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-4xl font-black mb-2 bg-gradient-to-r from-red-600 via-orange-500 to-red-600 bg-clip-text text-transparent">
+              Question Bank Management
+            </h1>
+            <p className="text-lg text-slate-600 dark:text-slate-300">
+              Manage, review, and generate questions for the platform
             </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 border-green-200 dark:border-green-900 bg-white dark:bg-slate-800">
-          <CardContent className="pt-6">
-            <p className="text-sm text-slate-600 dark:text-slate-400">Verified</p>
-            <p className="text-3xl font-black text-green-600 dark:text-green-400">
-              {mockQuestions.filter(q => q.isVerified).length}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 border-yellow-200 dark:border-yellow-900 bg-white dark:bg-slate-800">
-          <CardContent className="pt-6">
-            <p className="text-sm text-slate-600 dark:text-slate-400">Pending Review</p>
-            <p className="text-3xl font-black text-yellow-600 dark:text-yellow-400">
-              {mockQuestions.filter(q => !q.isVerified).length}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 border-red-200 dark:border-red-900 bg-white dark:bg-slate-800">
-          <CardContent className="pt-6">
-            <p className="text-sm text-slate-600 dark:text-slate-400">Reported</p>
-            <p className="text-3xl font-black text-red-600 dark:text-red-400">
-              {mockQuestions.filter(q => q.reportCount > 0).length}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Questions List */}
-      <Card className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-        <CardHeader>
-          <CardTitle className="text-2xl font-black">Questions ({filteredQuestions.length})</CardTitle>
-          <CardDescription>Manage question content and verification status</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredQuestions.map((question) => {
-              const difficultyInfo = getDifficultyLabel(question.difficulty)
-
-              return (
-                <div
-                  key={question.id}
-                  className="p-4 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all bg-slate-50 dark:bg-slate-800/50"
-                >
-                  {/* Header */}
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <span className="px-3 py-1 rounded-full bg-slate-900 dark:bg-slate-700 text-white text-xs font-bold">
-                        ID: {question.id}
-                      </span>
-                      <span className="px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 text-xs font-bold">
-                        {question.language}
-                      </span>
-                      <span className="px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-400 text-xs font-bold">
-                        {question.conceptName}
-                      </span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${difficultyInfo.color}`}>
-                        {difficultyInfo.label}
-                      </span>
-                      {question.isVerified ? (
-                        <span className="px-3 py-1 rounded-full bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400 text-xs font-bold flex items-center gap-1">
-                          <CheckCircle className="h-3 w-3" />
-                          Verified
-                        </span>
-                      ) : (
-                        <span className="px-3 py-1 rounded-full bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400 text-xs font-bold flex items-center gap-1">
-                          <XCircle className="h-3 w-3" />
-                          Unverified
-                        </span>
-                      )}
-                      {question.reportCount > 0 && (
-                        <span className="px-3 py-1 rounded-full bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400 text-xs font-bold">
-                          {question.reportCount} Reports
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                      Created {new Date(question.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-
-                  {/* Question Content */}
-                  <div className="mb-3">
-                    <pre className="text-sm text-slate-900 dark:text-white font-mono bg-slate-100 dark:bg-slate-900 p-3 rounded-lg overflow-x-auto whitespace-pre-wrap">
-                      {question.question}
-                    </pre>
-                  </div>
-
-                  {/* Options */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
-                    {question.options.map((option, index) => (
-                      <div
-                        key={index}
-                        className={`p-2 rounded text-sm ${
-                          index === question.correctAnswer
-                            ? "bg-green-100 dark:bg-green-950 text-green-900 dark:text-green-400 font-semibold border-2 border-green-500"
-                            : "bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300"
-                        }`}
-                      >
-                        <span className="font-bold mr-2">{String.fromCharCode(65 + index)}.</span>
-                        {option}
+          </div>
+          
+          {/* Notification Bell */}
+          <div className="relative" ref={notificationRef}>
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative p-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              <Bell className={`h-6 w-6 ${generationProgress?.active ? 'text-orange-500 animate-bounce' : 'text-slate-600 dark:text-slate-400'}`} />
+              {generationProgress?.active && (
+                <span className="absolute top-2 right-2 h-3 w-3 bg-red-500 rounded-full animate-pulse" />
+              )}
+            </button>
+            
+            {/* Notification Dropdown */}
+            {showNotifications && (
+              <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-lg shadow-2xl z-50">
+                <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+                  <h3 className="font-bold text-slate-900 dark:text-white">Notifications</h3>
+                </div>
+                
+                {generationProgress?.active ? (
+                  <div className="p-4">
+                    <div className="flex items-start gap-3">
+                      <RefreshCw className="h-5 w-5 text-orange-500 animate-spin mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-slate-900 dark:text-white mb-2">
+                          Generating Questions
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-slate-600 dark:text-slate-400">Requested:</span>
+                            <span className="font-semibold text-slate-900 dark:text-white">{generationProgress.total}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600 dark:text-slate-400">Generated:</span>
+                            <span className="font-semibold text-green-600 dark:text-green-400">{generationProgress.generated}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600 dark:text-slate-400">Remaining:</span>
+                            <span className="font-semibold text-orange-600 dark:text-orange-400">
+                              {Math.max(0, generationProgress.total - generationProgress.generated)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-3 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-orange-500 to-red-500 transition-all duration-500"
+                            style={{ width: `${(generationProgress.generated / generationProgress.total) * 100}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                          Task: {generationProgress.taskId.slice(0, 8)}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-700">
-                    <div className="text-xs text-slate-600 dark:text-slate-400">
-                      Sub-topic: <span className="font-semibold">{question.subTopic}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+                    <Bell className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No active notifications</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card className="border-2 border-blue-200 dark:border-blue-900">
+            <CardContent className="pt-6">
+              <p className="text-sm text-slate-600 dark:text-slate-400">Total Questions</p>
+              <p className="text-3xl font-black text-blue-600 dark:text-blue-400">
+                {totalCount}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-green-200 dark:border-green-900">
+            <CardContent className="pt-6">
+              <p className="text-sm text-slate-600 dark:text-slate-400">Verified</p>
+              <p className="text-3xl font-black text-green-600 dark:text-green-400">
+                {verifiedCount}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-yellow-200 dark:border-yellow-900">
+            <CardContent className="pt-6">
+              <p className="text-sm text-slate-600 dark:text-slate-400">Pending Review</p>
+              <p className="text-3xl font-black text-yellow-600 dark:text-yellow-400">
+                {pendingCount}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-red-200 dark:border-red-900">
+            <CardContent className="pt-6">
+              <p className="text-sm text-slate-600 dark:text-slate-400">Low Quality</p>
+              <p className="text-3xl font-black text-red-600 dark:text-red-400">
+                {lowQualityCount}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Edit Question Dialog */}
+        <Dialog open={!!editingQuestion} onOpenChange={(open) => !open && setEditingQuestion(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-slate-900 dark:text-white">Edit Question</DialogTitle>
+              <DialogDescription className="text-slate-600 dark:text-slate-400">
+                Make changes to the question. Click save when you're done.
+              </DialogDescription>
+            </DialogHeader>
+            
+            {editingQuestion && (
+              <div className="space-y-4 py-4">
+                {/* Question Text */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-900 dark:text-white">Question Text</label>
+                  <textarea
+                    className="w-full min-h-[100px] p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                    defaultValue={editingQuestion.question_data.question_text}
+                    onChange={(e) => {
+                      setEditingQuestion({
+                        ...editingQuestion,
+                        question_data: {
+                          ...editingQuestion.question_data,
+                          question_text: e.target.value
+                        }
+                      })
+                    }}
+                  />
+                </div>
+
+                {/* Code Snippet */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-900 dark:text-white">Code Snippet (optional)</label>
+                  <textarea
+                    className="w-full min-h-[150px] p-3 border border-slate-300 dark:border-slate-600 rounded-lg font-mono text-sm bg-slate-800 dark:bg-slate-950 text-green-400 dark:text-green-300"
+                    defaultValue={editingQuestion.question_data.code_snippet || ''}
+                    onChange={(e) => {
+                      setEditingQuestion({
+                        ...editingQuestion,
+                        question_data: {
+                          ...editingQuestion.question_data,
+                          code_snippet: e.target.value || null
+                        }
+                      })
+                    }}
+                  />
+                </div>
+
+                {/* Options */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-900 dark:text-white">Answer Options</label>
+                  {editingQuestion.question_data.options.map((option: any, index: number) => (
+                    <div key={index} className="flex items-start gap-2">
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="font-bold text-sm text-slate-900 dark:text-white">{option.id}.</span>
+                        <input
+                          type="checkbox"
+                          checked={option.is_correct}
+                          onChange={(e) => {
+                            const newOptions = [...editingQuestion.question_data.options]
+                            newOptions[index] = { ...option, is_correct: e.target.checked }
+                            setEditingQuestion({
+                              ...editingQuestion,
+                              question_data: {
+                                ...editingQuestion.question_data,
+                                options: newOptions
+                              }
+                            })
+                          }}
+                          className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 dark:bg-slate-800 dark:checked:bg-blue-600"
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        defaultValue={option.text}
+                        onChange={(e) => {
+                          const newOptions = [...editingQuestion.question_data.options]
+                          newOptions[index] = { ...option, text: e.target.value }
+                          setEditingQuestion({
+                            ...editingQuestion,
+                            question_data: {
+                              ...editingQuestion.question_data,
+                              options: newOptions
+                            }
+                          })
+                        }}
+                        className="flex-1 p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Explanation */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-900 dark:text-white">Explanation</label>
+                  <textarea
+                    className="w-full min-h-[80px] p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                    defaultValue={editingQuestion.question_data.explanation || ''}
+                    onChange={(e) => {
+                      setEditingQuestion({
+                        ...editingQuestion,
+                        question_data: {
+                          ...editingQuestion.question_data,
+                          explanation: e.target.value
+                        }
+                      })
+                    }}
+                  />
+                </div>
+
+                {/* Difficulty Slider */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-900 dark:text-white">Difficulty Level: {editingQuestion.difficulty_level?.toFixed(1) || '0.5'}</label>
+                  <Slider
+                    value={[editingQuestion.difficulty_level || 0.5]}
+                    onValueChange={([value]) => {
+                      setEditingQuestion({
+                        ...editingQuestion,
+                        difficulty_level: value
+                      })
+                    }}
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    variant="outline"
+                    className="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-900 dark:text-white border-slate-300 dark:border-slate-600"
+                    onClick={() => setEditingQuestion(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                    onClick={() => handleUpdate(editingQuestion.id, {
+                      question_data: editingQuestion.question_data,
+                      difficulty_level: editingQuestion.difficulty_level
+                    })}
+                  >
+                    Save Changes
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Main Content - Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="all">All Questions</TabsTrigger>
+            <TabsTrigger value="pending">Pending Review ({pendingCount})</TabsTrigger>
+            <TabsTrigger value="generate">Generate</TabsTrigger>
+          </TabsList>
+
+          {/* All Questions Tab */}
+          <TabsContent value="all" className="space-y-4">
+            {/* Filters */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="relative lg:col-span-2">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Search question content..."
+                      value={filters.search || ""}
+                      onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select
+                    value={filters.language_id || "all"}
+                    onValueChange={(value) => setFilters({ ...filters, language_id: value === "all" ? undefined : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Languages" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Languages</SelectItem>
+                      <SelectItem value="python_3">Python</SelectItem>
+                      <SelectItem value="javascript_es6">JavaScript</SelectItem>
+                      <SelectItem value="java_17">Java</SelectItem>
+                      <SelectItem value="cpp_20">C++</SelectItem>
+                      <SelectItem value="go_1_21">Go</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={filters.is_verified === undefined ? "all" : filters.is_verified ? "verified" : "unverified"}
+                    onValueChange={(value) => setFilters({ ...filters, is_verified: value === "all" ? undefined : value === "verified" })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="verified">Verified Only</SelectItem>
+                      <SelectItem value="unverified">Unverified Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Bulk Actions Toolbar */}
+            {selectedQuestions.size > 0 && (
+              <Card className="border-2 border-orange-500">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold">
+                      {selectedQuestions.size} question(s) selected
+                    </p>
+                    <div className="flex gap-2">
                       <Button
-                        variant="outline"
+                        variant="default"
                         size="sm"
-                        onClick={() => handleEditQuestion(question.id)}
+                        onClick={handleBulkApprove}
                       >
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit
-                      </Button>
-                      <Button
-                        variant={question.isVerified ? "outline" : "default"}
-                        size="sm"
-                        onClick={() => handleToggleVerification(question.id, question.isVerified)}
-                      >
-                        {question.isVerified ? (
-                          <>
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Unverify
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Verify
-                          </>
-                        )}
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Approve All
                       </Button>
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => handleDeleteQuestion(question.id)}
+                        onClick={handleBulkDelete}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete All
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedQuestions(new Set())}
+                      >
+                        Cancel
                       </Button>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Questions List */}
+            <Card>
+              <CardHeader>
+                <CardTitle>All Questions ({totalCount})</CardTitle>
+                <CardDescription>Browse and manage all platform questions</CardDescription>
+              </CardHeader>
+              <CardContent className="min-h-[400px]">
+                {loading ? (
+                  <div className="text-center py-8 text-slate-500">Loading...</div>
+                ) : allQuestions.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">No questions found</div>
+                ) : (
+                  <div className="space-y-4">
+                    {allQuestions.map((q) => renderQuestionCard(q))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Pending Review Tab */}
+          <TabsContent value="pending" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pending Review ({pendingCount})</CardTitle>
+                <CardDescription>Approve or reject AI-generated questions</CardDescription>
+              </CardHeader>
+              <CardContent className="min-h-[400px]">
+                {loading ? (
+                  <div className="text-center py-8 text-slate-500">Loading...</div>
+                ) : pendingQuestions.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">No pending questions</div>
+                ) : (
+                  <div className="space-y-4">
+                    {pendingQuestions.map((q) => renderQuestionCard(q as AdminQuestion, true, true))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Low Quality Tab */}
+          {/* Generate Tab */}
+          <TabsContent value="generate" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Generate Questions</CardTitle>
+                <CardDescription>Create new questions using AI</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="language">Language *</Label>
+                    <Select
+                      value={genForm.language_id}
+                      onValueChange={(value) => setGenForm({ ...genForm, language_id: value })}
+                    >
+                      <SelectTrigger id="language">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="python_3">Python</SelectItem>
+                        <SelectItem value="javascript_es6">JavaScript</SelectItem>
+                        <SelectItem value="java_17">Java</SelectItem>
+                        <SelectItem value="cpp_20">C++</SelectItem>
+                        <SelectItem value="go_1_21">Go</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="topic">Topic *</Label>
+                    <Select
+                      value={selectedTopic?.name || ""}
+                      onValueChange={handleTopicChange}
+                    >
+                      <SelectTrigger id="topic">
+                        <SelectValue placeholder="Select a topic" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableTopics.map((topic) => (
+                          <SelectItem key={topic.major_topic_id} value={topic.name}>
+                            {topic.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedTopic && (
+                      <p className="text-xs text-slate-500">
+                        Concept: {selectedTopic.mapping_id}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="subtopic">Sub-topic (Optional)</Label>
+                    <Select
+                      value={genForm.sub_topic || "any_subtopic"}
+                      onValueChange={(value) => setGenForm({ ...genForm, sub_topic: value === "any_subtopic" ? "" : value })}
+                      disabled={!selectedTopic}
+                    >
+                      <SelectTrigger id="subtopic">
+                        <SelectValue placeholder={selectedTopic ? "Select a sub-topic" : "Select topic first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any_subtopic">Any sub-topic</SelectItem>
+                        {selectedTopic?.sub_topics.map((subTopic) => (
+                          <SelectItem key={subTopic} value={subTopic}>
+                            {subTopic}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="count">Number of Questions (1-50)</Label>
+                    <Input
+                      id="count"
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={genForm.count}
+                      onChange={(e) => setGenForm({ ...genForm, count: parseInt(e.target.value) || 10 })}
+                    />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="difficulty">
+                      Question Difficulty: {genForm.difficulty.toFixed(2)} ({getDifficultyLabel(genForm.difficulty).label})
+                    </Label>
+                    <Slider
+                      id="difficulty"
+                      min={0}
+                      max={1}
+                      step={0.1}
+                      value={[genForm.difficulty]}
+                      onValueChange={(value) => setGenForm({ ...genForm, difficulty: value[0] })}
+                      className="mb-2"
+                    />
+                    <p className="text-xs text-slate-500">
+                      Controls how challenging the generated questions will be
+                    </p>
+                  </div>
                 </div>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+
+                <div className="space-y-3">
+                  <Button
+                    onClick={handleGenerate}
+                    disabled={generating || !selectedTopic}
+                    className="w-full h-12 text-base bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white font-bold"
+                  >
+                    {generating ? (
+                      <>
+                        <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
+                        Generating {genForm.count} questions...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-5 w-5 mr-2" />
+                        Generate {genForm.count} Questions
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
+                    <p className="text-sm text-blue-900 dark:text-blue-100">
+                      <strong>Note:</strong> Generation runs in the background. Check the &quot;Pending Review&quot; tab in ~{genForm.count * 4} seconds to review generated questions.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
     </ProtectedRoute>
   )
 }
