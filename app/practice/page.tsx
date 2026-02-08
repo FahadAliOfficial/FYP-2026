@@ -97,6 +97,7 @@ function PracticeContent() {
   const [difficulty, setDifficulty] = useState<number>(0.5)
   const [questionCount, setQuestionCount] = useState<number>(10)
   const [mode, setMode] = useState<string>("practice")
+  const [allowedModes, setAllowedModes] = useState<string[]>(["practice"])
 
   // Check language and pre-fill from URL params
   useEffect(() => {
@@ -116,8 +117,20 @@ function PracticeContent() {
         if (conceptParam) {
           setSelectedConcept(conceptParam)
         }
-        if (modeParam && ['practice', 'exam', 'review'].includes(modeParam)) {
-          setMode(modeParam)
+        
+        // Determine allowed modes based on URL parameter
+        if (modeParam === 'exam') {
+          // Exam mode only accessible through "Continue Learning"
+          setAllowedModes(['exam'])
+          setMode('exam')
+        } else if (modeParam === 'review') {
+          // Review mode only accessible through dashboard triggers
+          setAllowedModes(['review'])
+          setMode('review')
+        } else {
+          // Default: only practice mode when accessing directly
+          setAllowedModes(['practice'])
+          setMode('practice')
         }
       }
     }
@@ -379,13 +392,18 @@ function PracticeContent() {
                   </div>
                   <div>
                     <CardTitle>Practice Mode</CardTitle>
-                    <CardDescription>Choose how you want to learn</CardDescription>
+                    <CardDescription>
+                      {allowedModes.length === 1 
+                        ? `${MODES.find(m => m.id === allowedModes[0])?.name} selected`
+                        : "Choose how you want to learn"
+                      }
+                    </CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3">
-                  {MODES.map((modeOption) => {
+                  {MODES.filter(modeOption => allowedModes.includes(modeOption.id)).map((modeOption) => {
                     const Icon = modeOption.icon
                     const isSelected = mode === modeOption.id
                     
@@ -393,11 +411,12 @@ function PracticeContent() {
                       <button
                         key={modeOption.id}
                         onClick={() => setMode(modeOption.id)}
+                        disabled={allowedModes.length === 1}
                         className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
                           isSelected
                             ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30 shadow-lg shadow-purple-500/20'
                             : 'border-slate-200 dark:border-slate-800 hover:border-purple-300 dark:hover:border-purple-800'
-                        }`}
+                        } ${allowedModes.length === 1 ? 'cursor-default' : 'cursor-pointer'}`}
                       >
                         <div className="flex items-start gap-3">
                           <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${modeOption.color} flex items-center justify-center shadow-lg flex-shrink-0`}>
@@ -421,6 +440,17 @@ function PracticeContent() {
                     )
                   })}
                 </div>
+                
+                {allowedModes.length === 1 && allowedModes[0] !== 'practice' && (
+                  <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      {allowedModes[0] === 'exam' 
+                        ? '📚 Exam mode initiated from your learning path'
+                        : '🔄 Review mode triggered for knowledge reinforcement'
+                      }
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
