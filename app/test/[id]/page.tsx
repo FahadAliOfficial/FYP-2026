@@ -149,9 +149,8 @@ function TestPage() {
         const correct = q.question_data.options.find((opt) => opt.is_correct)?.id || ""
         const selectedOption = q.question_data.options.find((opt) => opt.id === selected)
 
-        // Get proper sub_topic: prefer direct field, then from question_data, then mapping_id
+        // Get proper sub_topic: prefer direct field, then mapping_id
         const subTopic = q.sub_topic || 
-                        q.question_data.sub_topic || 
                         q.mapping_id || 
                         sessionConfig?.concept_name || 
                         "General Topic"
