@@ -5,7 +5,7 @@
  * fetching results.
  */
 
-import { get, post } from './client'
+import { get, post, del } from './client'
 
 export interface ExamStartRequest {
   user_id: string
@@ -135,12 +135,8 @@ export async function pollNewQuestions(sessionId: string): Promise<SelectQuestio
 }
 
 export async function closeQuestionSession(sessionId: string): Promise<void> {
-  await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/question-bank/session/${sessionId}`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-    }
-  })
+  // Use del() so it goes through the proxy and sends the in-memory access token
+  await del(`/question-bank/session/${sessionId}`).catch(() => {/* best-effort cleanup */})
 }
 
 export async function submitExam(request: ExamSubmissionPayload): Promise<ExamSubmissionResponse> {

@@ -75,28 +75,29 @@ function TestPage() {
 
         console.log(`📊 Initial response: ${response.questions.length} questions, more_loading: ${response.more_questions_loading}`)
 
-        // If more questions are loading, show generating screen and start polling
+        // If more questions are loading, start polling
         if (response.more_questions_loading) {
           console.log('🔄 Questions are being generated, starting polling...')
-          setIsGenerating(true)
+          setMoreQuestionsLoading(true)
           setIsLoading(false)
-          
-          // Start with whatever questions we have (even if 0)
+
           if (response.questions.length > 0) {
+            // We already have some questions — show the panel right away and
+            // keep polling in the background to append the rest.
             setQuestions(response.questions)
-            currentQuestionCount.current = response.questions.length // Update ref
+            currentQuestionCount.current = response.questions.length
             setSessionStartedAt(Date.now())
-            
-            // Adjust timer based on mode
             if (config.mode === 'exam') {
               setTimeLeft(config.question_count * 90)
             } else {
               setTimeLeft(config.question_count * 180)
             }
+            // isGenerating stays false → question panel is visible immediately
+          } else {
+            // Nothing yet — show the waiting screen until first question arrives
+            setIsGenerating(true)
           }
-          
-          // Start aggressive polling
-          setMoreQuestionsLoading(true)
+
           startPolling(config.session_id)
           return
         }
@@ -139,9 +140,9 @@ function TestPage() {
 
       pollingStartTime.current = Date.now()
       let pollCount = 0
-      const maxPolls = 40 // Poll for up to 80 seconds (40 × 2s)
+      const maxPolls = 90 // Poll for up to 3 minutes (90 × 2s) - allows for OpenAI retries
       const minWaitMs = 15000 // Wait at least 15 seconds before considering stopping
-      const aggressiveWaitMs = 30000 // If we have 0 questions, wait at least 30 seconds
+      const aggressiveWaitMs = 45000 // If we have 0 questions, wait at least 45 seconds
 
       pollingIntervalRef.current = setInterval(async () => {
         pollCount++
@@ -223,10 +224,10 @@ function TestPage() {
             
             setQuestions(prev => {
               if (prev.length === 0) {
-                setLoadError('Question generation is taking longer than expected. Please try again.')
+                setLoadError('Question generation is taking longer than expected. The AI may be experiencing delays or validation issues. Please try again.')
               } else {
                 // We have some questions, continue with what we have
-                console.log(`✅ Continuing with ${prev.length} questions (timeout reached)`)
+                console.log(`✅ Continuing with ${prev.length} questions (timeout reached - OpenAI retry may still be running)`)
               }
               return prev
             })
@@ -407,26 +408,17 @@ function TestPage() {
     )
   }
 
-  if (isGenerating) {
+  // Only gate behind full-screen when we have literally 0 questions
+  if (isGenerating && questions.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
         <div className="text-center max-w-md">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto mb-6"></div>
-          <div className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
-            {questions.length > 0 ? 'Loading More Questions...' : 'Generating Questions...'}
-          </div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Generating Questions...</div>
           <p className="text-slate-600 dark:text-slate-400 mb-4">
-            {questions.length > 0 
-              ? `You can start answering! More questions are being generated in the background.`
-              : `AI is creating fresh questions for you. This usually takes 5-15 seconds.`
-            }
+            AI is creating fresh questions for you. This usually takes 10–30 seconds, occasionally up to a minute if quality validation is strict.
           </p>
-          <p className="text-sm text-slate-500 dark:text-slate-500">
-            {questions.length > 0 
-              ? `${questions.length} of ${totalRequested} questions ready`
-              : 'Waiting for first question...'
-            }
-          </p>
+          <p className="text-sm text-slate-500 dark:text-slate-500">Waiting for first question...</p>
         </div>
       </div>
     )
@@ -504,9 +496,12 @@ function TestPage() {
 
           {/* Loading More Questions Indicator */}
           {moreQuestionsLoading && (
-            <div className="flex items-center justify-center gap-2 text-sm text-slate-600 dark:text-slate-400 bg-blue-50 dark:bg-blue-950/30 px-4 py-2 rounded-lg border border-blue-200 dark:border-blue-900">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Loading more questions... ({questions.length}/{totalRequested})</span>
+            <div className="flex items-center justify-center gap-2 text-sm text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 px-4 py-2 rounded-lg border border-blue-200 dark:border-blue-900 mt-3">
+              <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+              <span>
+                <span className="font-medium">Start answering — </span>
+                more questions are being generated in the background ({questions.length}/{totalRequested} ready)
+              </span>
             </div>
           )}
         </div>

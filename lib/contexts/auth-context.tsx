@@ -16,6 +16,7 @@ import type { User, LoginRequest, RegisterRequest } from '@/lib/types/auth';
 interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
+  isInitializing: boolean;
   isAuthenticated: boolean;
   error: string | null;
   login: (credentials: LoginRequest) => Promise<void>;
@@ -33,17 +34,21 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false); // Changed to false - don't block UI on initial load
+  // isLoading: true only during explicit login/register actions (button spinner)
+  const [isLoading, setIsLoading] = useState(false);
+  // isInitializing: true while the initial session-restore check runs on mount.
+  // ProtectedRoute waits for this to be false before deciding to redirect.
+  const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   /**
-   * Check if user is authenticated by trying to restore session
-   * Uses refresh token cookie to get new access token
+   * Check if user is authenticated by trying to restore session.
+   * Uses refresh token cookie to get new access token.
    */
   const checkAuth = useCallback(async () => {
+    setIsInitializing(true);
     try {
-      // Don't set loading to true - this runs in background
       setError(null);
       
       // Try to refresh access token using httpOnly cookie
@@ -57,6 +62,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Refresh failed - user is not authenticated (this is OK)
       setUser(null);
       clearAccessToken();
+    } finally {
+      // Auth check is done — ProtectedRoute can now decide to show or redirect
+      setIsInitializing(false);
     }
   }, []);
 
@@ -179,6 +187,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const value: AuthContextValue = {
     user,
     isLoading,
+    isInitializing,
     isAuthenticated: user !== null,
     error,
     login,

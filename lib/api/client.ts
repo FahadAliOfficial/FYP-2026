@@ -10,7 +10,7 @@
 
 import type { APIError } from '@/lib/types/auth';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = ''; // Empty = same origin, proxied through Next.js rewrites
 const REQUEST_TIMEOUT = 10000; // 10 seconds timeout
 
 /**

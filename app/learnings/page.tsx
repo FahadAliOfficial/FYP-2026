@@ -25,6 +25,7 @@ function LearningsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedLanguage, setSelectedLanguage] = useState("")
+  const [selectedDifficulty, setSelectedDifficulty] = useState("beginner")
   const [isLoading, setIsLoading] = useState(true)
   const [isAdding, setIsAdding] = useState(false)
   const [portfolio, setPortfolio] = useState<LanguageStats[]>([])
@@ -52,10 +53,11 @@ function LearningsPage() {
 
     setIsAdding(true)
     try {
-      await addLanguage(selectedLanguage)
+      await addLanguage(selectedLanguage, selectedDifficulty)
       await fetchPortfolio() // Refresh portfolio
       setShowCreateModal(false)
       setSelectedLanguage("")
+      setSelectedDifficulty("beginner")
     } catch (error: any) {
       console.error("Failed to add language:", error)
       alert(error?.data?.detail || "Failed to add language. Please try again.")
@@ -357,6 +359,66 @@ function LearningsPage() {
                 )}
               </div>
 
+              {/* Difficulty Selection */}
+              <div>
+                <h3 className="text-lg font-bold mb-4 text-slate-900 dark:text-white flex items-center gap-2">
+                  <div className="h-1 w-8 bg-gradient-to-r from-blue-600 to-green-500 rounded-full"></div>
+                  Your Experience Level
+                </h3>
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    {
+                      id: "beginner",
+                      label: "Beginner",
+                      emoji: "🌱",
+                      description: "New to this language",
+                      color: "from-green-500/10 to-emerald-500/10",
+                      border: "border-green-500 dark:border-green-400",
+                      badge: "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300",
+                    },
+                    {
+                      id: "intermediate",
+                      label: "Intermediate",
+                      emoji: "📈",
+                      description: "Know the basics already",
+                      color: "from-blue-500/10 to-cyan-500/10",
+                      border: "border-blue-500 dark:border-blue-400",
+                      badge: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300",
+                    },
+                    {
+                      id: "advanced",
+                      label: "Advanced",
+                      emoji: "🔥",
+                      description: "Experienced, want a challenge",
+                      color: "from-purple-500/10 to-violet-500/10",
+                      border: "border-purple-500 dark:border-purple-400",
+                      badge: "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300",
+                    },
+                  ].map((level) => (
+                    <button
+                      key={level.id}
+                      onClick={() => setSelectedDifficulty(level.id)}
+                      className={`relative p-5 rounded-xl border-2 transition-all duration-300 hover:scale-105 hover:shadow-lg text-left ${
+                        selectedDifficulty === level.id
+                          ? `${level.border} bg-gradient-to-br ${level.color} shadow-lg`
+                          : "border-slate-200 dark:border-slate-700 hover:border-slate-400 bg-white dark:bg-slate-900"
+                      }`}
+                    >
+                      {selectedDifficulty === level.id && (
+                        <div className="absolute -top-2 -right-2 h-6 w-6 bg-gradient-to-r from-blue-600 to-green-500 rounded-full flex items-center justify-center shadow-lg">
+                          <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className="text-3xl mb-2">{level.emoji}</div>
+                      <div className="font-bold text-slate-900 dark:text-white mb-1">{level.label}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{level.description}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Create Button */}
               <div className="flex gap-3 pt-4">
                 <Button
@@ -366,6 +428,7 @@ function LearningsPage() {
                   onClick={() => {
                     setShowCreateModal(false)
                     setSelectedLanguage("")
+                    setSelectedDifficulty("beginner")
                   }}
                   disabled={isAdding}
                 >

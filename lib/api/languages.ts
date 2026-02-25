@@ -48,8 +48,9 @@ export async function getLanguagePortfolio(): Promise<LanguagePortfolio> {
 /**
  * Add a new language to user's learning path
  */
-export async function addLanguage(languageId: string): Promise<AddLanguageResponse> {
+export async function addLanguage(languageId: string, difficultyLevel: string = 'beginner'): Promise<AddLanguageResponse> {
   return post<AddLanguageResponse>('/api/user/languages', {
-    language_id: languageId
+    language_id: languageId,
+    difficulty_level: difficultyLevel
   })
 }

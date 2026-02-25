@@ -30,7 +30,7 @@ export async function getCurriculum(): Promise<LanguageCurriculum[]> {
   }
 
   try {
-    const response = await fetch('http://localhost:8000/curriculum/all', {
+    const response = await fetch('/curriculum/all', {
       credentials: 'include',
     })
     

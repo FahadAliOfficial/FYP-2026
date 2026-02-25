@@ -23,18 +23,18 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, redirectTo = '/login' }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isInitializing } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // Only redirect after loading is complete and user is not authenticated
-    if (!isLoading && !isAuthenticated) {
+    // Only redirect after the initial session-restore check is complete
+    if (!isInitializing && !isAuthenticated) {
       router.push(redirectTo);
     }
-  }, [isLoading, isAuthenticated, router, redirectTo]);
+  }, [isInitializing, isAuthenticated, router, redirectTo]);
 
-  // Show loading spinner while checking authentication
-  if (isLoading) {
+  // Show loading spinner while restoring session on mount
+  if (isInitializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-green-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
         <div className="text-center space-y-4">
