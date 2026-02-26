@@ -95,6 +95,49 @@ export interface ExamSubmissionPayload {
   total_time_seconds: number
 }
 
+// Phase 2 Enhanced Schemas
+export interface EnhancedErrorPattern {
+  error_type: string
+  count: number
+  total_count?: number
+  trend?: 'new' | 'improving' | 'persistent' | 'recurring'
+  severity?: number
+  category?: string
+  first_seen?: string
+  last_seen?: string
+  applies_to_languages?: string[] | null
+  why_wrong?: string
+  correct_approach?: string
+  language_tip?: string
+  practice_suggestion?: string
+}
+
+export interface PrerequisiteGap {
+  prereq_id: string
+  name: string
+  current_mastery: number
+  required_mastery: number
+  gap_size: number
+  weight: number
+  impact: 'high' | 'medium' | 'low'
+  recommendation: string
+}
+
+export interface EnhancedRecommendation {
+  type?: string
+  priority?: number
+  title: string
+  description: string
+  estimated_time_minutes?: number
+  targets_error?: string | null
+  prerequisite_addressed?: string | null
+  language?: string
+  action?: string
+  focus_area?: string
+  learning_goal?: string
+  resource_url?: string
+}
+
 export interface ExamSubmissionResponse {
   success: boolean
   session_id: string
@@ -104,6 +147,10 @@ export interface ExamSubmissionResponse {
   synergies_applied: string[]
   soft_gate_violations: string[]
   recommendations: string[]
+  // Phase 2 enhancements (optional)
+  error_patterns?: EnhancedErrorPattern[]
+  prerequisite_gaps?: PrerequisiteGap[]
+  overall_readiness?: number
 }
 
 export interface ExamResultsResponse {
@@ -116,10 +163,15 @@ export interface ExamResultsResponse {
   time_taken_seconds: number
   questions: QuestionResultPayload[]
   strong_topics: { name: string; accuracy: number }[]
-  error_patterns: { error_type: string; count: number }[]
-  recommendations: { title: string; description: string }[]
+  error_patterns: EnhancedErrorPattern[]  // Updated to EnhancedErrorPattern
+  recommendations: EnhancedRecommendation[]  // Updated to EnhancedRecommendation
   analysis_status: string
   analysis_bullets: string[] | null
+  recommendations_source?: 'llm' | 'fallback' | 'failed' | 'pending' | 'none' | 'unknown'
+  error_patterns_source?: 'llm' | 'fallback' | 'failed' | 'pending' | 'none' | 'unknown'
+  // Phase 2 enhancements (optional)
+  prerequisite_gaps?: PrerequisiteGap[]
+  overall_readiness?: number
 }
 
 export async function startExamSession(request: ExamStartRequest): Promise<ExamStartResponse> {

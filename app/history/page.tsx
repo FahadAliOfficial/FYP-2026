@@ -22,6 +22,7 @@ import {
   Award
 } from "lucide-react"
 import { getSessionHistory, type SessionHistoryItem, type SessionHistoryFilters } from "@/lib/api/sessions"
+import { formatTopicId } from "@/lib/utils/format-topic"
 
 const LANGUAGE_NAMES: Record<string, string> = {
   python_3: "Python",
@@ -330,7 +331,7 @@ function HistoryPage() {
                             </Badge>
                           </div>
                           <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-1 truncate">
-                            {session.topic_name}
+                            {formatTopicId(session.topic_name)}
                           </h3>
                           <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
                             <span className="flex items-center gap-1">

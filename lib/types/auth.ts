@@ -11,6 +11,14 @@ export type LanguageId =
   | 'java_17' 
   | 'cpp_20' 
   | 'go_1_21';
+
+/**
+ * Experience level for users
+ */
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
+
+/**
+ * User profile data
  */
 export interface User {
   id: string;

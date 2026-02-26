@@ -23,6 +23,7 @@ import { getCurriculum, getTopicsForLanguage, getTopicByMappingId, getStudentPro
 import { getRLRecommendation } from "@/lib/api/rl"
 import { startExamSession } from "@/lib/api/exam"
 import { useAuth } from "@/lib/contexts/auth-context"
+import { formatTopicId } from "@/lib/utils/format-topic"
 
 function LearningDetailPage() {
   const router = useRouter()
@@ -305,7 +306,7 @@ function LearningDetailPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <CardTitle className="text-xl text-slate-900 dark:text-white">
-                                {topic.name}
+                                {formatTopicId(topic.name)}
                               </CardTitle>
                               
                               {isRecommended && !isCompleted && !isLocked && (

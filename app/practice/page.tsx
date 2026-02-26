@@ -33,6 +33,7 @@ import {
 import { useAuth } from "@/lib/contexts/auth-context"
 import { getCurriculum, getTopicByMappingId, getTopicsForLanguage, type LanguageCurriculum } from "@/lib/api/curriculum"
 import { startExamSession } from "@/lib/api/exam"
+import { formatTopicId } from "@/lib/utils/format-topic"
 
 const CONCEPT_META: Record<string, { icon: typeof Target; color: string }> = {
   UNIV_SYN_LOGIC: { icon: Variable, color: "from-blue-600 to-blue-500" },
@@ -273,7 +274,7 @@ function PracticeContent() {
                         <SelectItem key={concept.mapping_id} value={concept.mapping_id}>
                           <div className="flex items-center gap-2">
                             <Icon className="h-4 w-4" />
-                            <span>{concept.name}</span>
+                            <span>{formatTopicId(concept.name)}</span>
                           </div>
                         </SelectItem>
                       )

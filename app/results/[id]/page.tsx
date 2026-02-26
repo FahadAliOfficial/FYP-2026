@@ -2,8 +2,12 @@
 
 import { useRouter, useParams } from "next/navigation"
 import { ProtectedRoute } from "@/components/protected-route"
+import { ErrorPatternCard } from "@/components/error-pattern-card"
+import { RecommendationCard } from "@/components/recommendation-card"
+import { PrerequisiteGapAlert } from "@/components/prerequisite-gap-alert"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import {
     Trophy,
@@ -19,95 +23,7 @@ import {
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { getExamResults, type ExamResultsResponse, type QuestionResultPayload, type QuestionOption } from "@/lib/api/exam"
-
-// Error type descriptions with actionable advice
-const ERROR_TYPE_INFO: Record<string, { 
-  title: string
-  description: string
-  advice: string
-  studyTips: string[]
-}> = {
-  LOGIC_ERRORS: {
-    title: "Logic Error",
-    description: "Your answer shows a misunderstanding of how the code logic flows or what operations are performed.",
-    advice: "Trace through the code step-by-step with sample values to understand execution order.",
-    studyTips: [
-      "Use a debugger or print statements to see variable values at each step",
-      "Draw flowcharts to visualize the logic flow",
-      "Practice reading code line-by-line before predicting output"
-    ]
-  },
-  OFF_BY_ONE_ERROR: {
-    title: "Off-by-One Error",
-    description: "Your answer is close but off by one position - often related to loop boundaries or array indexing.",
-    advice: "Remember: most loops/arrays start at 0. Check if your loop should use < or <=, and > or >=.",
-    studyTips: [
-      "Review loop range syntax: range(n) goes from 0 to n-1",
-      "Practice with small examples: what does range(3) actually produce?",
-      "Check start and end conditions carefully in your loops"
-    ]
-  },
-  INDEX_OUT_OF_BOUNDS: {
-    title: "Index Out of Bounds",
-    description: "You selected an answer that would cause accessing an array/list position that doesn't exist.",
-    advice: "Always verify that your index is within valid range: 0 to length-1.",
-    studyTips: [
-      "List with 5 items has indices 0,1,2,3,4 (not 1,2,3,4,5)",
-      "Use len() to check array size before accessing",
-      "Practice: if len(arr)=5, valid indices are 0-4"
-    ]
-  },
-  TYPE_CONFUSION: {
-    title: "Type Confusion",
-    description: "Your answer shows confusion about data types (string vs number, list vs single value, etc.).",
-    advice: "Pay attention to quotes (strings) vs no quotes (numbers), and brackets for lists/arrays.",
-    studyTips: [
-      "'5' is a string, 5 is a number - they behave differently",
-      "[1,2,3] is a list, 1 is a single number",
-      "Review type conversion: int(), str(), list()"
-    ]
-  },
-  OPERATOR_MISUSE: {
-    title: "Operator Misuse",
-    description: "You confused operators like +, *, /, %, or, and, ==, etc.",
-    advice: "Review what each operator does: + adds, * multiplies, == compares, = assigns.",
-    studyTips: [
-      "= assigns a value, == checks equality",
-      "% gives remainder (5 % 2 = 1)",
-      "// is integer division (5 // 2 = 2)"
-    ]
-  },
-  SCOPE_ERROR: {
-    title: "Scope Error",
-    description: "Your answer shows confusion about variable scope - where variables can be accessed.",
-    advice: "Variables defined inside functions/loops aren't visible outside. Global vs local scope matters.",
-    studyTips: [
-      "Variables inside {} or functions are local",
-      "Parameters are local to their function",
-      "Use 'global' keyword to modify global variables in functions"
-    ]
-  },
-  MUTABILITY_ERROR: {
-    title: "Mutability Error",
-    description: "You didn't account for whether the data type can be changed (mutable) or not (immutable).",
-    advice: "Lists are mutable (changeable), strings/tuples are immutable (can't be changed).",
-    studyTips: [
-      "Lists can be modified: arr[0] = 5 works",
-      "Strings can't: 'hello'[0] = 'H' fails",
-      "Operations on immutable types create new values"
-    ]
-  },
-  SYNTAX_MISUNDERSTANDING: {
-    title: "Syntax Misunderstanding",
-    description: "Your answer shows confusion about the language syntax or code structure.",
-    advice: "Review the basic syntax rules: colons, indentation, parentheses, brackets matter.",
-    studyTips: [
-      "Python uses indentation to define code blocks",
-      "Colons (:) start new blocks after if/for/while/def",
-      "Practice writing small code snippets by hand"
-    ]
-  }
-}
+import { formatTopicId, formatErrorType } from "@/lib/utils/format-topic"
 
 function ResultsPage() {
     const router = useRouter()
@@ -161,6 +77,25 @@ function ResultsPage() {
             active = false
         }
     }, [params.id])
+
+    useEffect(() => {
+        const sessionId = Array.isArray(params.id) ? params.id[0] : params.id
+        if (!sessionId || !results) return
+
+        const status = (results.analysis_status || '').toLowerCase()
+        if (status === 'completed' || status === 'failed') return
+
+        const intervalId = setInterval(async () => {
+            try {
+                const latest = await getExamResults(sessionId)
+                setResults(latest)
+            } catch {
+                // Keep silent during polling; initial load already handles errors
+            }
+        }, 7000)
+
+        return () => clearInterval(intervalId)
+    }, [params.id, results])
 
     const handlePracticeAgain = () => {
         const mode = results?.session_type || 'practice'
@@ -229,6 +164,25 @@ function ResultsPage() {
     }
 
     const grade = getGrade(percentage)
+
+    const sourceBadge = (source?: 'llm' | 'fallback' | 'failed' | 'pending' | 'none' | 'unknown') => {
+        if (source === 'llm') {
+            return <Badge className="bg-green-600 text-white border-green-700">LLM</Badge>
+        }
+        if (source === 'fallback') {
+            return <Badge className="bg-amber-500 text-white border-amber-600">Fallback</Badge>
+        }
+        if (source === 'failed') {
+            return <Badge className="bg-red-600 text-white border-red-700">Failed</Badge>
+        }
+        if (source === 'pending') {
+            return <Badge variant="outline">Pending</Badge>
+        }
+        if (source === 'none') {
+            return <Badge variant="outline">N/A</Badge>
+        }
+        return <Badge variant="outline">Unknown</Badge>
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
@@ -322,7 +276,7 @@ function ResultsPage() {
                             {results.strong_topics.map((topic, index) => (
                                 <div key={`${topic.name}-${index}`} className="space-y-2">
                                     <div className="flex justify-between text-sm">
-                                        <span className="font-medium">{topic.name}</span>
+                                        <span className="font-medium">{formatTopicId(topic.name)}</span>
                                         <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{topic.accuracy}%</span>
                                     </div>
                                     <Progress value={topic.accuracy} className="h-2" />
@@ -344,6 +298,7 @@ function ResultsPage() {
                                     <AlertTriangle className="h-5 w-5 text-white" />
                                 </div>
                                 Error Patterns
+                                {sourceBadge(results.error_patterns_source)}
                             </CardTitle>
                             <CardDescription className="dark:text-slate-400">
                                 Common mistakes detected
@@ -351,37 +306,12 @@ function ResultsPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="max-h-[400px] overflow-y-auto pr-2 space-y-3">
-                                {results.error_patterns.map((pattern) => {
-                                    const errorInfo = ERROR_TYPE_INFO[pattern.error_type] || {
-                                        title: pattern.error_type.replace(/_/g, ' '),
-                                        description: "Review this concept to improve your understanding.",
-                                        advice: "Practice similar problems and review the fundamentals.",
-                                        studyTips: []
-                                    }
-                                    return (
-                                        <div key={pattern.error_type} className="p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border-2 border-red-200 dark:border-red-900">
-                                            <div className="flex items-center justify-between gap-2 mb-2">
-                                                <span className="inline-block px-3 py-1 rounded-md text-xs font-bold bg-red-600 text-white">
-                                                    {errorInfo.title}
-                                                </span>
-                                                <span className="text-sm font-bold text-red-700 dark:text-red-300">
-                                                    {pattern.count}x
-                                                </span>
-                                            </div>
-                                            <p className="text-sm font-medium text-red-900 dark:text-red-200 mb-2">
-                                                {errorInfo.description}
-                                            </p>
-                                            <div className="bg-white dark:bg-red-950/50 p-3 rounded border border-red-200 dark:border-red-800">
-                                                <p className="text-xs font-semibold text-red-800 dark:text-red-300 mb-2">
-                                                    💡 How to improve:
-                                                </p>
-                                                <p className="text-xs text-red-700 dark:text-red-400">
-                                                    {errorInfo.advice}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )
-                                })}
+                                {results.error_patterns.map((pattern) => (
+                                    <ErrorPatternCard 
+                                        key={pattern.error_type} 
+                                        pattern={pattern} 
+                                    />
+                                ))}
                                 {results.error_patterns.length === 0 && (
                                     <p className="text-center text-slate-600 dark:text-slate-400 py-4 text-sm">
                                         No error patterns detected. Great job!
@@ -399,6 +329,7 @@ function ResultsPage() {
                                     <Target className="h-5 w-5 text-white" />
                                 </div>
                                 Recommendations
+                                {sourceBadge(results.recommendations_source)}
                             </CardTitle>
                             <CardDescription className="dark:text-slate-400">
                                 Suggested resources to improve
@@ -407,22 +338,30 @@ function ResultsPage() {
                         <CardContent>
                             <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2">
                                 {results.recommendations.map((rec, index) => (
-                                    <div
+                                    <RecommendationCard
                                         key={`${rec.title}-${index}`}
-                                        className="block p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60"
-                                    >
-                                        <div className="font-medium text-sm text-slate-900 dark:text-white">{rec.title}</div>
-                                        <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">{rec.description}</div>
-                                    </div>
+                                        recommendation={rec}
+                                        index={index}
+                                    />
                                 ))}
                                 {results.recommendations.length === 0 && (
                                     <p className="text-center text-slate-600 dark:text-slate-400 py-4 text-sm">
-                                        Recommendations will appear after analysis completes.
+                                        {results.analysis_status === 'failed'
+                                            ? 'Analysis failed for this session, so recommendations could not be generated. Please retake the test to regenerate analysis.'
+                                            : 'Recommendations are being generated. This section updates automatically when analysis completes.'}
                                     </p>
                                 )}
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Prerequisite Gaps - Phase 3 */}
+                    {results.prerequisite_gaps && results.prerequisite_gaps.length > 0 && (
+                        <PrerequisiteGapAlert 
+                            gaps={results.prerequisite_gaps} 
+                            overallReadiness={results.overall_readiness}
+                        />
+                    )}
                 </div>
 
                 {(results.session_type !== 'practice' && results.session_type !== 'review') && (
@@ -551,13 +490,6 @@ function ResultsPage() {
 
                                         {/* Error Pattern Analysis - Only for incorrect answers */}
                                         {!question.is_correct && question.error_type && (() => {
-                                            const errorInfo = ERROR_TYPE_INFO[question.error_type] || {
-                                                title: question.error_type.replace(/_/g, ' '),
-                                                description: "Review this concept to improve your understanding.",
-                                                advice: "Practice similar problems and review the fundamentals.",
-                                                studyTips: []
-                                            }
-                                            
                                             // Find the option they selected to show what error it represents
                                             const selectedOption = (question.options || []).find(
                                                 (opt: QuestionOption) => opt.id === question.selected_choice
@@ -567,15 +499,15 @@ function ResultsPage() {
                                                 <div className="bg-red-50 dark:bg-red-950/30 border-2 border-red-200 dark:border-red-900 p-4 rounded-lg">
                                                     <div className="text-sm font-semibold mb-3 flex items-center gap-2 text-red-900 dark:text-red-200">
                                                         <AlertTriangle className="h-5 w-5 text-red-600" />
-                                                        Why Your Answer Was Wrong
+                                                        Error Pattern Detected
                                                     </div>
                                                     <div className="space-y-3">
                                                         <div>
                                                             <span className="inline-block px-3 py-1 rounded-md text-xs font-bold bg-red-600 text-white mb-2">
-                                                                {errorInfo.title}
+                                                                {formatErrorType(question.error_type)}
                                                             </span>
                                                             <p className="text-sm text-red-900 dark:text-red-200 font-medium">
-                                                                {errorInfo.description}
+                                                                This error pattern has been logged for personalized feedback.
                                                             </p>
                                                         </div>
                                                         
@@ -591,19 +523,9 @@ function ResultsPage() {
                                                         )}
                                                         
                                                         <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded border border-blue-300 dark:border-blue-800">
-                                                            <p className="text-xs font-semibold text-blue-900 dark:text-blue-300 mb-2">
-                                                                💡 How to avoid this mistake:
+                                                            <p className="text-xs font-semibold text-blue-900 dark:text-blue-300">
+                                                                💡 Check the Error Patterns section above for detailed analysis and improvement tips.
                                                             </p>
-                                                            <p className="text-xs text-blue-800 dark:text-blue-400 mb-2">
-                                                                {errorInfo.advice}
-                                                            </p>
-                                                            {errorInfo.studyTips.length > 0 && (
-                                                                <ul className="text-xs text-blue-700 dark:text-blue-500 space-y-1 ml-4">
-                                                                    {errorInfo.studyTips.map((tip, idx) => (
-                                                                        <li key={idx} className="list-disc">{tip}</li>
-                                                                    ))}
-                                                                </ul>
-                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
