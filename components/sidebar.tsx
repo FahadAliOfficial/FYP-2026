@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, BookOpen, Settings, LogOut, X, Brain, Menu, Sparkles, User, Target, History } from "lucide-react"
+import { LayoutDashboard, BookOpen, Settings, LogOut, X, Brain, Menu, Sparkles, User, Target, History, HelpCircle } from "lucide-react"
 import { Button } from "./ui/button"
 import { ThemeToggle } from "./theme-toggle"
 import { useState } from "react"
@@ -54,6 +54,14 @@ const navigation = [
     color: "from-green-600 to-green-500",
     hoverColor: "hover:bg-green-50 dark:hover:bg-green-950",
     activeColor: "bg-gradient-to-r from-green-600 to-green-500"
+  },
+  {
+    name: "Support",
+    href: "/support",
+    icon: HelpCircle,
+    color: "from-teal-600 to-teal-500",
+    hoverColor: "hover:bg-teal-50 dark:hover:bg-teal-950",
+    activeColor: "bg-gradient-to-r from-teal-600 to-teal-500"
   },
   {
     name: "Settings",

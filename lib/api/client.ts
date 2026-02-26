@@ -19,6 +19,22 @@ const REQUEST_TIMEOUT = 10000; // 10 seconds timeout
  */
 let accessToken: string | null = null;
 
+async function refreshAccessTokenIfPossible(): Promise<string | null> {
+  const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+
+  if (!refreshResponse.ok) {
+    return null;
+  }
+
+  const refreshData = await refreshResponse.json();
+  const token = typeof refreshData?.access_token === 'string' ? refreshData.access_token : null;
+  setAccessToken(token);
+  return token;
+}
+
 /**
  * Store access token in memory
  */
@@ -79,6 +95,18 @@ export async function apiClient<T = any>(
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
+
+  const isAuthEndpoint = endpoint.startsWith('/api/auth/');
+
+  if (!accessToken && !isAuthEndpoint) {
+    const refreshedToken = await refreshAccessTokenIfPossible();
+    if (!refreshedToken) {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+      throw new APIClientError(401, { detail: 'Session expired. Please login again.' });
+    }
+  }
   
   // Default headers
   const headers: Record<string, string> = {
@@ -108,40 +136,33 @@ export async function apiClient<T = any>(
     
     // Handle 401 Unauthorized - try to refresh token
     if (response.status === 401 && endpoint !== '/api/auth/refresh') {
-      // Try to refresh the access token using refresh cookie
-      try {
-        const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-          method: 'POST',
-          credentials: 'include', // Sends refresh_token cookie
-        });
-        
-        if (refreshResponse.ok) {
-          const refreshData = await refreshResponse.json();
-          setAccessToken(refreshData.access_token);
-          
-          // Retry original request with new access token
-          headers['Authorization'] = `Bearer ${refreshData.access_token}`;
-          const retryResponse = await fetch(url, { ...config, headers });
-          
-          if (retryResponse.ok) {
-            return retryResponse.json();
-          }
-          
-          // Retry failed
-          const errorData = await parseErrorResponse(retryResponse);
-          throw new APIClientError(retryResponse.status, errorData);
-        }
-      } catch (refreshError) {
-        // Refresh failed - user needs to login again
+      const refreshedToken = await refreshAccessTokenIfPossible();
+
+      // Refresh token is invalid/expired -> force login
+      if (!refreshedToken) {
         clearAccessToken();
-        
-        // Redirect to login page
+
         if (typeof window !== 'undefined') {
           window.location.href = '/login';
         }
-        
+
         throw new APIClientError(401, { detail: 'Session expired. Please login again.' });
       }
+
+      // Retry original request with new access token
+      headers['Authorization'] = `Bearer ${refreshedToken}`;
+      const retryResponse = await fetch(url, { ...config, headers });
+
+      if (!retryResponse.ok) {
+        const errorData = await parseErrorResponse(retryResponse);
+        throw new APIClientError(retryResponse.status, errorData);
+      }
+
+      if (retryResponse.status === 204) {
+        return {} as T;
+      }
+
+      return retryResponse.json();
     }
     
     // Handle other HTTP errors

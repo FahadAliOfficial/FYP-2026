@@ -1,397 +1,630 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { ProtectedRoute } from "@/components/protected-route"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Search, MessageSquare, CheckCircle, Clock, Mail, User } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import {
+  getAllTickets,
+  getTicketStats,
+  getTicket,
+  updateTicketStatus,
+  assignTicket,
+  addMessage,
+  deleteTicket,
+} from "@/lib/api/tickets";
+import {
+  Ticket,
+  TicketDetail,
+  TicketStats,
+  TicketFilters,
+} from "@/lib/types/tickets";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  MessageSquare,
+  Send,
+  Trash2,
+  UserCheck,
+  Wrench,
+  UserCircle,
+  FileText,
+  HelpCircle,
+  RefreshCw,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
-// TODO: Add role-based access control when backend supports admin roles
-export default function UserQueriesPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [categoryFilter, setCategoryFilter] = useState("all")
+const categoryIcons = {
+  technical: Wrench,
+  account: UserCircle,
+  exam: FileText,
+  general: HelpCircle,
+};
 
-  // TODO: In production, fetch from API - GET /api/admin/queries
-  const mockQueries = [
-    {
-      id: 1,
-      userId: 451,
-      userEmail: "student@example.com",
-      userName: "John Doe",
-      category: "technical_issue",
-      subject: "Cannot log in to my account",
-      message: "I've been trying to log in for the past hour but keep getting an error message. My password is correct. Please help!",
-      status: "open",
-      priority: "high",
-      submittedAt: "2026-01-30T08:30:00Z",
-      replies: [],
-    },
-    {
-      id: 2,
-      userId: 452,
-      userEmail: "alice@example.com",
-      userName: "Alice Smith",
-      category: "content_question",
-      subject: "How does the spaced repetition algorithm work?",
-      message: "I'm curious about the decay formula mentioned in the platform. Can you explain how it calculates when I should review topics?",
-      status: "open",
-      priority: "medium",
-      submittedAt: "2026-01-29T15:20:00Z",
-      replies: [
-        {
-          from: "admin@learnrl.com",
-          message: "Great question! The decay formula is M(t) = M0 * e^(-0.02*t) where M0 is your initial mastery...",
-          timestamp: "2026-01-29T16:00:00Z",
-        },
-      ],
-    },
-    {
-      id: 3,
-      userId: 453,
-      userEmail: "bob@example.com",
-      userName: "Bob Johnson",
-      category: "feature_request",
-      subject: "Add support for Rust programming language",
-      message: "Would love to see Rust added to the platform! It's becoming very popular and would be great for learning systems programming concepts.",
-      status: "resolved",
-      priority: "low",
-      submittedAt: "2026-01-28T10:15:00Z",
-      resolvedAt: "2026-01-29T09:30:00Z",
-      replies: [
-        {
-          from: "admin@learnrl.com",
-          message: "Thank you for the suggestion! We'll add this to our roadmap for future language support.",
-          timestamp: "2026-01-29T09:30:00Z",
-        },
-      ],
-    },
-    {
-      id: 4,
-      userId: 454,
-      userEmail: "carol@example.com",
-      userName: "Carol White",
-      category: "billing",
-      subject: "Refund request for subscription",
-      message: "I was charged twice for my subscription this month. Can you please refund the duplicate charge?",
-      status: "open",
-      priority: "high",
-      submittedAt: "2026-01-30T07:45:00Z",
-      replies: [],
-    },
-    {
-      id: 5,
-      userId: 455,
-      userEmail: "dave@example.com",
-      userName: "David Brown",
-      category: "account",
-      subject: "How to change my email address?",
-      message: "I need to update my email address associated with my account. Where can I do this in settings?",
-      status: "resolved",
-      priority: "low",
-      submittedAt: "2026-01-27T14:20:00Z",
-      resolvedAt: "2026-01-27T15:00:00Z",
-      replies: [
-        {
-          from: "admin@learnrl.com",
-          message: "Go to Settings > Account > Update Email. You'll need to verify your new email address.",
-          timestamp: "2026-01-27T15:00:00Z",
-        },
-      ],
-    },
-  ]
+const statusColors = {
+  open: "bg-blue-500",
+  in_progress: "bg-yellow-500",
+  resolved: "bg-green-500",
+  closed: "bg-gray-500",
+};
 
-  const filteredQueries = mockQueries.filter(query => {
-    const matchesSearch = query.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         query.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         query.userEmail.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = statusFilter === "all" || query.status === statusFilter
-    const matchesCategory = categoryFilter === "all" || query.category === categoryFilter
-    return matchesSearch && matchesStatus && matchesCategory
-  })
+const statusLabels = {
+  open: "Open",
+  in_progress: "In Progress",
+  resolved: "Resolved",
+  closed: "Closed",
+};
 
-  const handleReply = (queryId: number) => {
-    // TODO: Implement reply modal
-    console.log(`Reply to query ${queryId}`)
-  }
+const priorityColors = {
+  low: "bg-gray-400",
+  normal: "bg-blue-400",
+  high: "bg-orange-400",
+  urgent: "bg-red-500",
+};
 
-  const handleResolve = (queryId: number) => {
-    // TODO: Call API - PATCH /api/admin/queries/:id/resolve
-    console.log(`Resolve query ${queryId}`)
-  }
+export default function AdminQueriesPage() {
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [stats, setStats] = useState<TicketStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<TicketFilters>({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTicket, setSelectedTicket] = useState<TicketDetail | null>(null);
+  const [viewingTicket, setViewingTicket] = useState(false);
+  const [replyMessage, setReplyMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const { toast } = useToast();
 
-  const getCategoryLabel = (category: string) => {
-    const labels: Record<string, string> = {
-      technical_issue: "Technical Issue",
-      content_question: "Content Question",
-      feature_request: "Feature Request",
-      billing: "Billing",
-      account: "Account",
-      other: "Other",
+  const messageCount = selectedTicket?.messages.length ?? 0;
+
+  useEffect(() => {
+    loadTickets();
+    loadStats();
+
+    // Auto-refresh every 2 seconds
+    const interval = setInterval(() => {
+      loadTickets();
+      loadStats();
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [filters, searchQuery]);
+
+  useEffect(() => {
+    if (selectedTicket) {
+      // Auto-refresh ticket details every 3 seconds when viewing
+      const interval = setInterval(() => {
+        refreshTicketDetails();
+      }, 3000);
+      return () => clearInterval(interval);
     }
-    return labels[category] || category
-  }
+  }, [selectedTicket]);
 
-  const getCategoryColor = (category: string) => {
-    const colors: Record<string, string> = {
-      technical_issue: "bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400",
-      content_question: "bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400",
-      feature_request: "bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400",
-      billing: "bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-400",
-      account: "bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400",
-      other: "bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-400",
+  useEffect(() => {
+    if (viewingTicket && messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
-    return colors[category] || colors.other
-  }
+  }, [viewingTicket, messageCount]);
 
-  const getPriorityColor = (priority: string) => {
-    const colors: Record<string, string> = {
-      high: "text-red-600 dark:text-red-400",
-      medium: "text-yellow-600 dark:text-yellow-400",
-      low: "text-green-600 dark:text-green-400",
+  useEffect(() => {
+    if (!viewingTicket) return;
+
+    const timeoutId = window.setTimeout(() => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    }, 80);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [viewingTicket, selectedTicket?.ticket.id, messageCount]);
+
+  const loadTickets = async () => {
+    try {
+      const data = await getAllTickets({ ...filters, search: searchQuery || undefined });
+      setTickets(data);
+    } catch (error) {
+      console.error("Failed to load tickets:", error);
+    } finally {
+      setLoading(false);
     }
-    return colors[priority] || colors.medium
-  }
+  };
+
+  const loadStats = async () => {
+    try {
+      const data = await getTicketStats();
+      setStats(data);
+    } catch (error) {
+      console.error("Failed to load stats:", error);
+    }
+  };
+
+  const refreshTicketDetails = async () => {
+    if (selectedTicket && viewingTicket) {
+      try {
+        const data = await getTicket(selectedTicket.ticket.id);
+        setSelectedTicket(data);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "";
+
+        if (message.toLowerCase().includes("ticket not found")) {
+          setViewingTicket(false);
+          setSelectedTicket(null);
+          setReplyMessage("");
+          loadTickets();
+          return;
+        }
+
+        console.error("Failed to refresh ticket:", error);
+      }
+    }
+  };
+
+  const handleViewTicket = async (ticketId: string) => {
+    try {
+      const data = await getTicket(ticketId);
+      setSelectedTicket(data);
+      setViewingTicket(true);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load ticket",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleStatusChange = async (ticketId: string, status: string) => {
+    try {
+      await updateTicketStatus(ticketId, { status: status as any });
+      toast({
+        title: "Status updated",
+        description: "Ticket status has been updated successfully",
+      });
+      loadTickets();
+      if (selectedTicket?.ticket.id === ticketId) {
+        refreshTicketDetails();
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAssign = async (ticketId: string, userId: string | null) => {
+    try {
+      await assignTicket(ticketId, { assigned_to: userId });
+      toast({
+        title: "Ticket assigned",
+        description: userId ? "Ticket has been assigned" : "Ticket unassigned",
+      });
+      loadTickets();
+      if (selectedTicket?.ticket.id === ticketId) {
+        refreshTicketDetails();
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to assign ticket",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSendReply = async () => {
+    if (!selectedTicket || !replyMessage.trim() || isSubmitting) return;
+
+    setIsSubmitting(true);
+
+    try {
+      await addMessage(selectedTicket.ticket.id, { message: replyMessage });
+
+      toast({
+        title: "Reply sent",
+        description: "Your reply has been added to the ticket",
+      });
+
+      setReplyMessage("");
+      refreshTicketDetails();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send reply",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (ticketId: string) => {
+    if (!confirm("Are you sure you want to delete this ticket? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await deleteTicket(ticketId);
+      toast({
+        title: "Ticket deleted",
+        description: "The ticket has been permanently deleted",
+      });
+      setViewingTicket(false);
+      setSelectedTicket(null);
+      loadTickets();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete ticket",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
-    <ProtectedRoute>
-      <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-4xl font-black mb-2 bg-gradient-to-r from-red-600 via-orange-500 to-red-600 bg-clip-text text-transparent">
-          User Queries
-        </h1>
-        <p className="text-lg text-slate-600 dark:text-slate-300">
-          Manage support tickets and user inquiries
-        </p>
+    <div className="container mx-auto py-8 px-4 max-w-7xl">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">Support Tickets</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage student support tickets and queries
+          </p>
+        </div>
+        <Button variant="outline" size="icon" onClick={() => { loadTickets(); loadStats(); }}>
+          <RefreshCw className="h-4 w-4" />
+        </Button>
       </div>
+
+      {/* Stats Cards */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
+              </div>
+              <MessageSquare className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </Card>
+
+          <Card className="p-4 border-blue-200 bg-blue-50">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-blue-600">Open</p>
+                <p className="text-2xl font-bold text-blue-700">{stats.open}</p>
+              </div>
+              <AlertCircle className="h-8 w-8 text-blue-500" />
+            </div>
+          </Card>
+
+          <Card className="p-4 border-yellow-200 bg-yellow-50">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-yellow-600">In Progress</p>
+                <p className="text-2xl font-bold text-yellow-700">{stats.in_progress}</p>
+              </div>
+              <Clock className="h-8 w-8 text-yellow-500" />
+            </div>
+          </Card>
+
+          <Card className="p-4 border-green-200 bg-green-50">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-green-600">Resolved</p>
+                <p className="text-2xl font-bold text-green-700">{stats.resolved}</p>
+              </div>
+              <CheckCircle2 className="h-8 w-8 text-green-500" />
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Closed</p>
+                <p className="text-2xl font-bold">{stats.closed}</p>
+              </div>
+              <CheckCircle2 className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Filters */}
-      <Card className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="Search queries..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="resolved">Resolved</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="technical_issue">Technical Issue</SelectItem>
-                <SelectItem value="content_question">Content Question</SelectItem>
-                <SelectItem value="feature_request">Feature Request</SelectItem>
-                <SelectItem value="billing">Billing</SelectItem>
-                <SelectItem value="account">Account</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div>
+          <Label>Search</Label>
+          <Input
+            placeholder="Ticket # or subject..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-2 border-red-200 dark:border-red-900 bg-white dark:bg-slate-800">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Open Queries</p>
-                <p className="text-3xl font-black text-red-600 dark:text-red-400">
-                  {mockQueries.filter(q => q.status === "open").length}
-                </p>
-              </div>
-              <Clock className="h-12 w-12 text-red-600 dark:text-red-400" />
-            </div>
-          </CardContent>
-        </Card>
+        <div>
+          <Label>Status</Label>
+          <Select
+            value={filters.status || "all"}
+            onValueChange={(v) =>
+              setFilters({ ...filters, status: v === "all" ? undefined : (v as any) })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="open">Open</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="resolved">Resolved</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-        <Card className="border-2 border-green-200 dark:border-green-900 bg-white dark:bg-slate-800">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Resolved</p>
-                <p className="text-3xl font-black text-green-600 dark:text-green-400">
-                  {mockQueries.filter(q => q.status === "resolved").length}
-                </p>
-              </div>
-              <CheckCircle className="h-12 w-12 text-green-600 dark:text-green-400" />
-            </div>
-          </CardContent>
-        </Card>
+        <div>
+          <Label>Category</Label>
+          <Select
+            value={filters.category || "all"}
+            onValueChange={(v) =>
+              setFilters({ ...filters, category: v === "all" ? undefined : (v as any) })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="technical">Technical</SelectItem>
+              <SelectItem value="account">Account</SelectItem>
+              <SelectItem value="exam">Exam</SelectItem>
+              <SelectItem value="general">General</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-        <Card className="border-2 border-yellow-200 dark:border-yellow-900 bg-white dark:bg-slate-800">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">High Priority</p>
-                <p className="text-3xl font-black text-yellow-600 dark:text-yellow-400">
-                  {mockQueries.filter(q => q.priority === "high" && q.status === "open").length}
-                </p>
-              </div>
-              <MessageSquare className="h-12 w-12 text-yellow-600 dark:text-yellow-400" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 border-blue-200 dark:border-blue-900 bg-white dark:bg-slate-800">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Total Queries</p>
-                <p className="text-3xl font-black text-blue-600 dark:text-blue-400">
-                  {mockQueries.length}
-                </p>
-              </div>
-              <Mail className="h-12 w-12 text-blue-600 dark:text-blue-400" />
-            </div>
-          </CardContent>
-        </Card>
+        <div>
+          <Label>Priority</Label>
+          <Select
+            value={filters.priority || "all"}
+            onValueChange={(v) =>
+              setFilters({ ...filters, priority: v === "all" ? undefined : (v as any) })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priorities</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="normal">Normal</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="urgent">Urgent</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Queries List */}
-      <Card className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-        <CardHeader>
-          <CardTitle className="text-2xl font-black">Queries ({filteredQueries.length})</CardTitle>
-          <CardDescription>Support tickets and user inquiries</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredQueries.map((query) => (
-              <div
-                key={query.id}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  query.status === "open"
-                    ? query.priority === "high"
-                      ? "border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20"
-                      : "border-yellow-200 dark:border-yellow-900 bg-yellow-50/50 dark:bg-yellow-950/20"
-                    : "border-green-200 dark:border-green-900 bg-green-50/50 dark:bg-green-950/20"
-                }`}
+      {/* Tickets List */}
+      {loading ? (
+        <div className="text-center py-12">
+          <Clock className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+          <p className="text-muted-foreground">Loading tickets...</p>
+        </div>
+      ) : tickets.length === 0 ? (
+        <Card className="p-12 text-center">
+          <MessageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-semibold mb-2">No tickets found</h3>
+          <p className="text-muted-foreground">
+            No support tickets match your current filters
+          </p>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {tickets.map((ticket) => {
+            const CategoryIcon = categoryIcons[ticket.category];
+            return (
+              <Card
+                key={ticket.id}
+                className="p-4 hover:border-primary cursor-pointer transition-colors"
+                onClick={() => handleViewTicket(ticket.id)}
               >
-                {/* Header */}
-                <div className="flex items-start justify-between gap-4 mb-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-3 py-1 rounded-full bg-slate-900 dark:bg-slate-700 text-white text-xs font-bold">
-                      Ticket #{query.id}
-                    </span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${getCategoryColor(query.category)}`}>
-                      {getCategoryLabel(query.category)}
-                    </span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      query.status === "open"
-                        ? "bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400"
-                        : "bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400"
-                    }`}>
-                      {query.status.toUpperCase()}
-                    </span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${getPriorityColor(query.priority)}`}>
-                      {query.priority.toUpperCase()} PRIORITY
-                    </span>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className="mt-1">
+                      <CategoryIcon className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold truncate">{ticket.subject}</h3>
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {ticket.ticket_number}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span className="capitalize">{ticket.category}</span>
+                        <span>•</span>
+                        <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+                        <span>•</span>
+                        <div className="flex items-center gap-1">
+                          <MessageSquare className="h-3 w-3" />
+                          <span>{ticket.message_count}</span>
+                        </div>
+                        {ticket.assigned_to && (
+                          <>
+                            <span>•</span>
+                            <UserCheck className="h-3 w-3" />
+                            <span>Assigned</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                    {new Date(query.submittedAt).toLocaleString()}
-                  </span>
-                </div>
 
-                {/* User Info */}
-                <div className="flex items-center gap-3 mb-3 p-2 bg-slate-100 dark:bg-slate-900 rounded">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center text-white font-bold">
-                    {query.userName.split(' ').map(n => n[0]).join('')}
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={cn("w-2 h-2 rounded-full", priorityColors[ticket.priority])}
+                    />
+                    <div
+                      className={cn(
+                        "px-2 py-1 rounded-full text-xs font-medium text-white",
+                        statusColors[ticket.status]
+                      )}
+                    >
+                      {statusLabels[ticket.status]}
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-slate-900 dark:text-white">{query.userName}</p>
-                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                      <Mail className="h-3 w-3" />
-                      {query.userEmail}
-                      <User className="h-3 w-3 ml-2" />
-                      User #{query.userId}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Ticket Detail Dialog */}
+      <Dialog open={viewingTicket} onOpenChange={setViewingTicket}>
+        <DialogContent className="max-w-5xl h-[92vh] max-h-[92vh] overflow-hidden flex flex-col [&>button]:h-10 [&>button]:w-10 [&>button]:p-2 [&>button_svg]:h-5 [&>button_svg]:w-5">
+          {selectedTicket && (
+            <>
+              <DialogHeader>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <DialogTitle className="text-xl mb-2">
+                      {selectedTicket.ticket.subject}
+                    </DialogTitle>
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+                      <span className="font-mono">{selectedTicket.ticket.ticket_number}</span>
+                      <span>•</span>
+                      <span className="capitalize">{selectedTicket.ticket.category}</span>
+                      <span>•</span>
+                      <span>{new Date(selectedTicket.ticket.created_at).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Subject */}
-                <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">
-                  {query.subject}
-                </h3>
-
-                {/* Message */}
-                <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 mb-3">
-                  <p className="text-sm text-slate-900 dark:text-white">{query.message}</p>
-                </div>
-
-                {/* Replies */}
-                {query.replies.length > 0 && (
-                  <div className="space-y-2 mb-3">
-                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">Replies:</p>
-                    {query.replies.map((reply, index) => (
-                      <div key={index} className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-900">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="text-xs font-semibold text-blue-900 dark:text-blue-400">{reply.from}</p>
-                          <p className="text-xs text-slate-600 dark:text-slate-400">
-                            {new Date(reply.timestamp).toLocaleString()}
-                          </p>
-                        </div>
-                        <p className="text-sm text-slate-900 dark:text-white">{reply.message}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Resolution Info */}
-                {query.status === "resolved" && query.resolvedAt && (
-                  <div className="mb-3 p-2 bg-green-100 dark:bg-green-950 rounded">
-                    <p className="text-xs text-green-800 dark:text-green-400">
-                      ✓ Resolved on {new Date(query.resolvedAt).toLocaleString()}
-                    </p>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => handleReply(query.id)}
-                  >
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Reply
-                  </Button>
-                  {query.status === "open" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleResolve(query.id)}
+                {/* Admin Actions */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label>Status</Label>
+                    <Select
+                      value={selectedTicket.ticket.status}
+                      onValueChange={(v) => handleStatusChange(selectedTicket.ticket.id, v)}
                     >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Mark as Resolved
+                      <SelectTrigger className="text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="open">Open</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="resolved">Resolved</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Priority</Label>
+                    <div
+                      className={cn(
+                        "h-9 px-3 rounded-md flex items-center text-xs font-medium text-white",
+                        priorityColors[selectedTicket.ticket.priority]
+                      )}
+                    >
+                      {selectedTicket.ticket.priority.toUpperCase()}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Actions</Label>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleDelete(selectedTicket.ticket.id)}
+                    >
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Delete
                     </Button>
-                  )}
+                  </div>
                 </div>
+              </DialogHeader>
+
+              {/* Messages */}
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto space-y-4 py-4">
+                {selectedTicket.messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={cn(
+                      "p-4 rounded-lg",
+                      msg.is_staff_reply
+                        ? "bg-blue-50 border-l-4 border-blue-500"
+                        : "bg-muted"
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-sm">
+                        {msg.sender_name}
+                        {msg.is_staff_reply && (
+                          <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-0.5 rounded">
+                            Support Staff
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(msg.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+
+              {/* Reply Box */}
+              {selectedTicket.ticket.status !== "closed" && (
+                <div className="border-t pt-4">
+                  <Label className="mb-2 block">Reply to ticket</Label>
+                  <div className="space-y-2">
+                    <Textarea
+                      className="w-full"
+                      value={replyMessage}
+                      onChange={(e) => setReplyMessage(e.target.value)}
+                      placeholder="Type your reply..."
+                      rows={3}
+                      disabled={isSubmitting}
+                    />
+                    <Button
+                      onClick={handleSendReply}
+                      disabled={!replyMessage.trim() || isSubmitting}
+                      className="w-full h-10 px-5 bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      Reply
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
-    </ProtectedRoute>
-  )
+  );
 }
