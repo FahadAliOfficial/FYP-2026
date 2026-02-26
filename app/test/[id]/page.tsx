@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
-import { Clock, ChevronLeft, ChevronRight, Flag, Loader2 } from "lucide-react"
+import { Clock, ChevronLeft, ChevronRight, Flag, Loader2, AlertTriangle } from "lucide-react"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { selectQuestions, submitExam, pollNewQuestions, closeQuestionSession, type SelectedQuestion, type QuestionOption } from "@/lib/api/exam"
+import { ReportQuestionModal } from "@/components/report-question-modal"
 
 
 type QuestionItem = SelectedQuestion
@@ -39,6 +40,8 @@ function TestPage() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const pollingStartTime = useRef<number | null>(null)
   const currentQuestionCount = useRef<number>(0)
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [reportedQuestions, setReportedQuestions] = useState<Set<string>>(new Set())
 
   // Load session config from localStorage and fetch questions
   useEffect(() => {
@@ -580,9 +583,20 @@ function TestPage() {
           <div>
             <Card className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-lg">
               <CardHeader className="bg-gradient-to-r from-indigo-500 to-cyan-600 text-white">
-                <CardTitle className="text-lg">
-                  Question {currentQuestion + 1}
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">
+                    Question {currentQuestion + 1}
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setReportModalOpen(true)}
+                    className="text-white hover:bg-white/20 gap-2"
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                    {reportedQuestions.has(currentItem?.id || '') ? 'Reported' : 'Flag Issue'}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 {/* Question */}
@@ -735,6 +749,19 @@ function TestPage() {
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* Report Question Modal */}
+        {currentItem && (
+          <ReportQuestionModal
+            open={reportModalOpen}
+            questionId={currentItem.id}
+            sessionId={sessionConfig?.session_id}
+            onClose={() => setReportModalOpen(false)}
+            onReported={() => {
+              setReportedQuestions(prev => new Set([...prev, currentItem.id]))
+            }}
+          />
         )}
       </div>
     </div>

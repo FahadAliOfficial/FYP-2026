@@ -219,6 +219,15 @@ export async function getPendingQuestions(
 }
 
 /**
+ * Get a single question by ID
+ */
+export async function getQuestionById(
+  questionId: string
+): Promise<AdminQuestion> {
+  return get<AdminQuestion>(`/api/admin/questions/${questionId}`);
+}
+
+/**
  * Update a question
  */
 export async function updateQuestion(

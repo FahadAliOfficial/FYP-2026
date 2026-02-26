@@ -989,45 +989,65 @@ export default function QuestionBankPage() {
             {/* Filters */}
             <Card>
               <CardContent className="pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="relative lg:col-span-2">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input
-                      placeholder="Search question content..."
-                      value={filters.search || ""}
-                      onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                      className="pl-10"
-                    />
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="relative lg:col-span-2">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        placeholder="Search by question text or ID..."
+                        value={filters.search || ""}
+                        onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
+                        className="pl-10"
+                      />
+                    </div>
+                    <Select
+                      value={filters.language_id || "all"}
+                      onValueChange={(value) => setFilters({ ...filters, language_id: value === "all" ? undefined : value, page: 1 })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Languages" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Languages</SelectItem>
+                        <SelectItem value="python_3">Python</SelectItem>
+                        <SelectItem value="javascript_es6">JavaScript</SelectItem>
+                        <SelectItem value="java_17">Java</SelectItem>
+                        <SelectItem value="cpp_20">C++</SelectItem>
+                        <SelectItem value="go_1_21">Go</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={filters.is_verified === undefined ? "all" : filters.is_verified ? "verified" : "unverified"}
+                      onValueChange={(value) => setFilters({ ...filters, is_verified: value === "all" ? undefined : value === "verified", page: 1 })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="verified">Verified Only</SelectItem>
+                        <SelectItem value="unverified">Unverified Only</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <Select
-                    value={filters.language_id || "all"}
-                    onValueChange={(value) => setFilters({ ...filters, language_id: value === "all" ? undefined : value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Languages" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Languages</SelectItem>
-                      <SelectItem value="python_3">Python</SelectItem>
-                      <SelectItem value="javascript_es6">JavaScript</SelectItem>
-                      <SelectItem value="java_17">Java</SelectItem>
-                      <SelectItem value="cpp_20">C++</SelectItem>
-                      <SelectItem value="go_1_21">Go</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={filters.is_verified === undefined ? "all" : filters.is_verified ? "verified" : "unverified"}
-                    onValueChange={(value) => setFilters({ ...filters, is_verified: value === "all" ? undefined : value === "verified" })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="verified">Verified Only</SelectItem>
-                      <SelectItem value="unverified">Unverified Only</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex justify-end">
+                    <div className="w-48">
+                      <Select
+                        value={String(filters.limit || 20)}
+                        onValueChange={(value) => setFilters({ ...filters, limit: Number(value), page: 1 })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Per Page" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="10">10 per page</SelectItem>
+                          <SelectItem value="20">20 per page</SelectItem>
+                          <SelectItem value="50">50 per page</SelectItem>
+                          <SelectItem value="100">100 per page</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1082,9 +1102,41 @@ export default function QuestionBankPage() {
                 ) : allQuestions.length === 0 ? (
                   <div className="text-center py-8 text-slate-500">No questions found</div>
                 ) : (
-                  <div className="space-y-4">
-                    {allQuestions.map((q) => renderQuestionCard(q))}
-                  </div>
+                  <>
+                    <div className="space-y-4">
+                      {allQuestions.map((q) => renderQuestionCard(q))}
+                    </div>
+                    
+                    {/* Pagination Controls */}
+                    <div className="flex items-center justify-between pt-6 border-t border-slate-200 dark:border-slate-700">
+                      <div className="text-sm text-slate-600 dark:text-slate-400">
+                        Showing {((filters.page || 1) - 1) * (filters.limit || 20) + 1} to {Math.min((filters.page || 1) * (filters.limit || 20), totalCount)} of {totalCount} questions
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setFilters({ ...filters, page: (filters.page || 1) - 1 })}
+                          disabled={!filters.page || filters.page <= 1}
+                        >
+                          Previous
+                        </Button>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-slate-600 dark:text-slate-400">
+                            Page {filters.page || 1} of {Math.ceil(totalCount / (filters.limit || 20))}
+                          </span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setFilters({ ...filters, page: (filters.page || 1) + 1 })}
+                          disabled={(filters.page || 1) >= Math.ceil(totalCount / (filters.limit || 20))}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>

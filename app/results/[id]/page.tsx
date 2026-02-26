@@ -20,10 +20,13 @@ import {
     ChevronDown,
     ChevronUp,
     AlertTriangle,
+    Flag,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { getExamResults, type ExamResultsResponse, type QuestionResultPayload, type QuestionOption } from "@/lib/api/exam"
 import { formatTopicId, formatErrorType } from "@/lib/utils/format-topic"
+import { ReportQuestionModal } from "@/components/report-question-modal"
+import { getUserReports } from "@/lib/api/reports"
 
 function ResultsPage() {
     const router = useRouter()
@@ -33,6 +36,9 @@ function ResultsPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [loadError, setLoadError] = useState<string | null>(null)
     const [sessionConfig, setSessionConfig] = useState<{ mapping_id?: string } | null>(null)
+    const [reportModalOpen, setReportModalOpen] = useState(false)
+    const [reportingQuestionId, setReportingQuestionId] = useState<string | null>(null)
+    const [reportedQuestions, setReportedQuestions] = useState<Set<string>>(new Set())
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -58,6 +64,17 @@ function ResultsPage() {
                 const data = await getExamResults(sessionId)
                 if (active) {
                     setResults(data)
+                }
+                
+                // Fetch user's reports for this session
+                try {
+                    const reports = await getUserReports(sessionId)
+                    const reportedIds = new Set(reports.map(r => r.question_id))
+                    if (active) {
+                        setReportedQuestions(reportedIds)
+                    }
+                } catch (error) {
+                    console.error('Failed to load reports:', error)
                 }
             } catch (error) {
                 console.error('Failed to load results:', error)
@@ -427,24 +444,46 @@ function ResultsPage() {
                                                 ) : (
                                                     <XCircle className="h-5 w-5 text-destructive" />
                                                 )}
+                                                {reportedQuestions.has(question.q_id) && (
+                                                    <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-300">
+                                                        <Flag className="h-3 w-3 mr-1" />
+                                                        Reported
+                                                    </Badge>
+                                                )}
                                             </div>
                                             <p className="text-sm">{question.question_text}</p>
                                         </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() =>
-                                                setExpandedQuestion(
-                                                    expandedQuestion === question.q_id ? null : question.q_id
-                                                )
-                                            }
-                                        >
-                                            {expandedQuestion === question.q_id ? (
-                                                <ChevronUp className="h-4 w-4" />
-                                            ) : (
-                                                <ChevronDown className="h-4 w-4" />
+                                        <div className="flex items-center gap-2">
+                                            {!reportedQuestions.has(question.q_id) && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setReportingQuestionId(question.q_id)
+                                                        setReportModalOpen(true)
+                                                    }}
+                                                    className="gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                                >
+                                                    <Flag className="h-4 w-4" />
+                                                    Report
+                                                </Button>
                                             )}
-                                        </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() =>
+                                                    setExpandedQuestion(
+                                                        expandedQuestion === question.q_id ? null : question.q_id
+                                                    )
+                                                }
+                                            >
+                                                {expandedQuestion === question.q_id ? (
+                                                    <ChevronUp className="h-4 w-4" />
+                                                ) : (
+                                                    <ChevronDown className="h-4 w-4" />
+                                                )}
+                                            </Button>
+                                        </div>
                                     </div>
                                 </CardHeader>
 
@@ -559,6 +598,24 @@ function ResultsPage() {
                     </Button>
                 </div>
             </div>
+
+            {/* Report Question Modal */}
+            {reportingQuestionId && (
+                <ReportQuestionModal
+                    open={reportModalOpen}
+                    questionId={reportingQuestionId}
+                    sessionId={Array.isArray(params.id) ? params.id[0] : params.id}
+                    onClose={() => {
+                        setReportModalOpen(false)
+                        setReportingQuestionId(null)
+                    }}
+                    onReported={() => {
+                        if (reportingQuestionId) {
+                            setReportedQuestions(prev => new Set([...prev, reportingQuestionId]))
+                        }
+                    }}
+                />
+            )}
         </div>
     )
 }
