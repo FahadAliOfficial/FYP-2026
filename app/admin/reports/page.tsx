@@ -9,6 +9,7 @@ import { Search, Flag, CheckCircle, Pencil, Trash2, AlertTriangle, Loader2 } fro
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Slider } from "@/components/ui/slider"
+import CodeExecutionPanel from "@/components/admin/CodeExecutionPanel"
 import { 
   getAdminReports, 
   getReportStats, 
@@ -543,6 +544,16 @@ export default function QuestionReportsPage() {
                       })
                     }}
                   />
+                  
+                  {/* Code Execution Panel */}
+                  {editingQuestion.question_data.code_snippet && (
+                    <CodeExecutionPanel
+                      language={editingQuestion.language_id}
+                      code={editingQuestion.question_data.code_snippet}
+                      correctAnswer={editingQuestion.question_data.options.find((opt: any) => opt.is_correct)?.text || ''}
+                      questionId={editingQuestion.id}
+                    />
+                  )}
                 </div>
               )}
 

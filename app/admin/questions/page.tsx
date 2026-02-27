@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { ProtectedRoute } from "@/components/protected-route"
+import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,9 +11,10 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Slider } from "@/components/ui/slider"
+import CodeExecutionPanel from "@/components/admin/CodeExecutionPanel"
 import { 
   Search, Edit, Trash2, CheckCircle, XCircle, Filter, Code, 
-  AlertTriangle, TrendingDown, Plus, RefreshCw, BarChart3, Bell
+  AlertTriangle, TrendingDown, Plus, RefreshCw, BarChart3, Bell, PlayCircle, Clock
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
@@ -37,6 +39,7 @@ import {
   type LanguageCurriculum,
   type CurriculumTopic
 } from "@/lib/api/curriculum"
+import { apiClient } from "@/lib/api/client"
 
 // Language display names
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -102,6 +105,14 @@ export default function QuestionBankPage() {
   const [dismissedPopup, setDismissedPopup] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<any>(null)
   const notificationRef = useRef<HTMLDivElement>(null)
+  
+  // Batch validation state
+  const [validationResults, setValidationResults] = useState<Map<string, { status: 'pass' | 'fail' | 'running' | 'error', message?: string }>>(new Map())
+  const [batchValidationRunning, setBatchValidationRunning] = useState(false)
+  const [validationProgress, setValidationProgress] = useState({ current: 0, total: 0 })
+  const [validationFilter, setValidationFilter] = useState<'all' | 'validated' | 'pass' | 'fail'>('all')
+  
+  const { toast } = useToast()
 
   // Load curriculum on mount
   useEffect(() => {
@@ -495,9 +506,125 @@ export default function QuestionBankPage() {
     return { label: "Hard", color: "text-red-600 dark:text-red-400" }
   }
 
+  // Batch validation function
+  const runBatchValidation = async () => {
+    const questionsToValidate = pendingQuestions.filter(q => q.question_data.code_snippet)
+    
+    if (questionsToValidate.length === 0) {
+      toast({
+        title: "No code to validate",
+        description: "No pending questions with code snippets found.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setBatchValidationRunning(true)
+    setValidationProgress({ current: 0, total: questionsToValidate.length })
+    setValidationResults(new Map())
+
+    for (let i = 0; i < questionsToValidate.length; i++) {
+      const q = questionsToValidate[i]
+      
+      // Update progress
+      setValidationProgress({ current: i + 1, total: questionsToValidate.length })
+      
+      // Mark as running
+      setValidationResults(prev => new Map(prev).set(q.id, { status: 'running' }))
+
+      try {
+        // Check for formatting issues
+        const codeSnippet = q.question_data.code_snippet
+        const codeWarnings: string[] = []
+        
+        // Check for multiple code blocks (multiple class declarations)
+        if (q.language_id === 'java_17') {
+          const classCount = (codeSnippet.match(/class\s+\w+/g) || []).length
+          if (classCount > 1) {
+            codeWarnings.push('Multiple classes detected')
+          }
+          // Check for incomplete code
+          if (codeSnippet.includes('public class') && !codeSnippet.includes('{')) {
+            codeWarnings.push('Incomplete class declaration')
+          }
+        }
+        
+        // Check if question text has code mixed in
+        if (q.question_data.question_text.includes('public class') || 
+            q.question_data.question_text.includes('public static void main')) {
+          codeWarnings.push('Code found in question text')
+        }
+        
+        if (codeWarnings.length > 0) {
+          setValidationResults(prev => new Map(prev).set(q.id, {
+            status: 'error',
+            message: `⚠️ Format issues: ${codeWarnings.join(', ')}`
+          }))
+          continue
+        }
+
+        const correctOption = q.question_data.options.find((opt: any) => opt.is_correct)
+        
+        if (!correctOption) {
+          setValidationResults(prev => new Map(prev).set(q.id, { 
+            status: 'error', 
+            message: 'No correct answer found' 
+          }))
+          continue
+        }
+
+        const result = await apiClient("/api/code-execution/validate-question", {
+          method: "POST",
+          body: JSON.stringify({
+            question_id: q.id,
+            code_snippet: q.question_data.code_snippet,
+            correct_answer: correctOption.text,
+            language_id: q.language_id,
+            wrap_code: true,
+          }),
+        })
+
+        setValidationResults(prev => new Map(prev).set(q.id, {
+          status: result.matched && result.is_valid ? 'pass' : 'fail',
+          message: result.matched ? 'Output matches' : `Expected: ${result.comparison.expected}, Got: ${result.comparison.actual}`
+        }))
+
+      } catch (error) {
+        setValidationResults(prev => new Map(prev).set(q.id, {
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Validation failed'
+        }))
+      }
+
+      // Small delay to prevent overwhelming the server
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+
+    setBatchValidationRunning(false)
+    
+    // Count results
+    const results = Array.from(validationResults.values())
+    const passCount = results.filter(r => r.status === 'pass').length
+    const failCount = results.filter(r => r.status === 'fail').length
+    
+    toast({
+      title: "Batch Validation Complete",
+      description: `✓ ${passCount} passed, ✗ ${failCount} failed out of ${questionsToValidate.length} questions`
+    })
+  }
+
+  const getFilteredPendingQuestions = () => {
+    if (validationFilter === 'all') return pendingQuestions
+    if (validationFilter === 'validated') return pendingQuestions.filter(q => validationResults.has(q.id))
+    if (validationFilter === 'pass') return pendingQuestions.filter(q => validationResults.get(q.id)?.status === 'pass')
+    if (validationFilter === 'fail') return pendingQuestions.filter(q => validationResults.get(q.id)?.status === 'fail')
+    return pendingQuestions
+  }
+
   const renderQuestionCard = (q: AdminQuestion, showActions = true, isPending = false) => {
     const difficultyInfo = getDifficultyLabel(q.difficulty)
     const accuracyRate = q.times_used > 0 ? ((q.times_correct / q.times_used) * 100).toFixed(1) : "N/A"
+    const validationResult = validationResults.get(q.id)
 
     return (
       <div
@@ -541,6 +668,14 @@ export default function QuestionBankPage() {
             <Badge variant="outline">
               Quality: {(q.quality_score * 100).toFixed(0)}%
             </Badge>
+            {validationResult && (
+              <Badge className={validationResult.status === 'pass' ? 'bg-green-500 text-white' : validationResult.status === 'fail' ? 'bg-red-500 text-white' : validationResult.status === 'running' ? 'bg-blue-500 text-white' : 'bg-gray-500 text-white'}>
+                {validationResult.status === 'pass' && <CheckCircle className="h-3 w-3 mr-1" />}
+                {validationResult.status === 'fail' && <XCircle className="h-3 w-3 mr-1" />}
+                {validationResult.status === 'running' && <Clock className="h-3 w-3 mr-1 animate-spin" />}
+                {validationResult.status === 'pass' ? 'Code Valid' : validationResult.status === 'fail' ? 'Code Invalid' : validationResult.status === 'running' ? 'Testing...' : 'Error'}
+              </Badge>
+            )}
             {q.times_used > 0 && (
               <Badge variant="outline">
                 Used: {q.times_used} | Accuracy: {accuracyRate}%
@@ -870,6 +1005,16 @@ export default function QuestionBankPage() {
                       })
                     }}
                   />
+                  
+                  {/* Code Execution Panel */}
+                  {editingQuestion.question_data.code_snippet && (
+                    <CodeExecutionPanel
+                      language={editingQuestion.language_id}
+                      code={editingQuestion.question_data.code_snippet}
+                      correctAnswer={editingQuestion.question_data.options.find((opt: any) => opt.is_correct)?.text || ''}
+                      questionId={editingQuestion.id}
+                    />
+                  )}
                 </div>
 
                 {/* Options */}
@@ -1146,17 +1291,52 @@ export default function QuestionBankPage() {
           <TabsContent value="pending" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Pending Review ({pendingCount})</CardTitle>
-                <CardDescription>Approve or reject AI-generated questions</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Pending Review ({pendingCount})</CardTitle>
+                    <CardDescription>Approve or reject AI-generated questions</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {batchValidationRunning && (
+                      <span className="text-sm text-slate-600 dark:text-slate-400">
+                        Testing {validationProgress.current}/{validationProgress.total}...
+                      </span>
+                    )}
+                    <Select
+                      value={validationFilter}
+                      onValueChange={(value: 'all' | 'validated' | 'pass' | 'fail') => setValidationFilter(value)}
+                    >
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Questions</SelectItem>
+                        <SelectItem value="validated">Validated</SelectItem>
+                        <SelectItem value="pass">Passed</SelectItem>
+                        <SelectItem value="fail">Failed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      onClick={runBatchValidation}
+                      disabled={batchValidationRunning || pendingQuestions.filter(q => q.question_data.code_snippet).length === 0}
+                      className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <PlayCircle className="h-4 w-4" />
+                      {batchValidationRunning ? 'Running...' : 'Run All Compilers'}
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="min-h-[400px]">
                 {loading ? (
                   <div className="text-center py-8 text-slate-500">Loading...</div>
-                ) : pendingQuestions.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500">No pending questions</div>
+                ) : getFilteredPendingQuestions().length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    {validationFilter !== 'all' ? 'No questions match this filter' : 'No pending questions'}
+                  </div>
                 ) : (
                   <div className="space-y-4">
-                    {pendingQuestions.map((q) => renderQuestionCard(q as AdminQuestion, true, true))}
+                    {getFilteredPendingQuestions().map((q) => renderQuestionCard(q as AdminQuestion, true, true))}
                   </div>
                 )}
               </CardContent>
