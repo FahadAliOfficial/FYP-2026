@@ -34,7 +34,7 @@ const languages = [
   {
     id: "java_17",
     name: "Java",
-    version: "17 LTS",
+    version: "13.0.1",
     logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg",
     description: "Enterprise applications and Android development",
     color: "from-red-500 to-orange-600",
@@ -44,7 +44,7 @@ const languages = [
   {
     id: "cpp_20",
     name: "C++",
-    version: "C++20",
+    version: "C++17",
     logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/cplusplus/cplusplus-original.svg",
     description: "High-performance systems and game development",
     color: "from-purple-500 to-purple-600",
