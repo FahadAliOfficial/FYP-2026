@@ -12,6 +12,8 @@ export interface ExamStartRequest {
   language_id: string
   major_topic_id: string
   session_type: 'diagnostic' | 'practice' | 'exam' | 'review'
+  rl_action_id?: number
+  rl_recommendation_id?: string
 }
 
 export interface ExamStartResponse {

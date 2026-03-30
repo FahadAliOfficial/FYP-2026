@@ -28,7 +28,8 @@ import {
   Database,
   AlertTriangle,
   Box,
-  Boxes
+  Boxes,
+  TrendingUp
 } from "lucide-react"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { getCurriculum, getTopicByMappingId, getTopicsForLanguage, type LanguageCurriculum } from "@/lib/api/curriculum"
@@ -99,6 +100,8 @@ function PracticeContent() {
   const [questionCount, setQuestionCount] = useState<number>(10)
   const [mode, setMode] = useState<string>("practice")
   const [allowedModes, setAllowedModes] = useState<string[]>(["practice"])
+  const [rlActionId, setRlActionId] = useState<number | null>(null)
+  const [rlRecommended, setRlRecommended] = useState<boolean>(false)
 
   // Check language and pre-fill from URL params
   useEffect(() => {
@@ -114,9 +117,28 @@ function PracticeContent() {
         // Pre-fill from URL params
         const conceptParam = searchParams.get('concept')
         const modeParam = searchParams.get('mode')
+        const difficultyParam = searchParams.get('difficulty')
+        const rlActionIdParam = searchParams.get('rl_action_id')
         
         if (conceptParam) {
           setSelectedConcept(conceptParam)
+        }
+        
+        // Pre-fill difficulty if provided (from RL recommendation)
+        if (difficultyParam) {
+          const parsedDifficulty = parseFloat(difficultyParam)
+          if (!isNaN(parsedDifficulty) && parsedDifficulty >= 0.3 && parsedDifficulty <= 1.0) {
+            setDifficulty(parsedDifficulty)
+            setRlRecommended(true)
+          }
+        }
+        
+        // Store RL action ID if provided
+        if (rlActionIdParam) {
+          const parsedActionId = parseInt(rlActionIdParam)
+          if (!isNaN(parsedActionId)) {
+            setRlActionId(parsedActionId)
+          }
         }
         
         // Determine allowed modes based on URL parameter
@@ -175,12 +197,18 @@ function PracticeContent() {
 
     setIsStarting(true)
     try {
-      const payload = {
+      const payload: any = {
         user_id: user.id,
         language_id: currentLanguage,
         major_topic_id: topic.major_topic_id,
         session_type: mode as "practice" | "exam" | "review"
       }
+      
+      // Include RL action ID if this session is from an RL recommendation
+      if (rlActionId !== null && mode === 'exam') {
+        payload.rl_action_id = rlActionId
+      }
+      
       console.log('📤 Sending to /api/exam/start:', payload)
       
       const response = await startExamSession(payload)
@@ -246,6 +274,27 @@ function PracticeContent() {
               Choose your topic, difficulty, and mode to start learning
             </p>
           </div>
+
+          {/* RL Recommendation Banner */}
+          {rlRecommended && mode === 'exam' && (
+            <Card className="mb-6 border-2 border-blue-500 dark:border-blue-400 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center shadow-lg flex-shrink-0">
+                    <TrendingUp className="h-5 w-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-blue-900 dark:text-blue-100 mb-1">
+                      🤖 AI-Recommended Learning Path
+                    </h3>
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      This topic and difficulty have been selected by our PPO reinforcement learning model based on your current mastery profile. You can adjust the settings if needed.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="grid gap-6">
             {/* Concept Selection */}

@@ -388,30 +388,34 @@ function ResultsPage() {
                                 <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
                                     <Target className="h-5 w-5 text-white" />
                                 </div>
-                                RL Settings
+                                RL-Powered Exam
                             </CardTitle>
                             <CardDescription className="dark:text-slate-400">
-                                Reinforcement Learning configuration for this test
+                                This exam may have been recommended by our reinforcement learning model
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Learning Rate</div>
-                                    <div className="text-lg font-bold text-slate-900 dark:text-white">0.001</div>
+                                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Model Strategy</div>
+                                    <div className="text-lg font-bold text-slate-900 dark:text-white">PPO</div>
+                                    <div className="text-xs text-slate-500 mt-1">Proximal Policy Optimization</div>
                                 </div>
                                 <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Discount Factor</div>
-                                    <div className="text-lg font-bold text-slate-900 dark:text-white">0.95</div>
+                                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Exam Mode</div>
+                                    <div className="text-lg font-bold text-slate-900 dark:text-white">Adaptive</div>
+                                    <div className="text-xs text-slate-500 mt-1">AI-selected curriculum</div>
                                 </div>
                                 <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Exploration Rate</div>
-                                    <div className="text-lg font-bold text-slate-900 dark:text-white">0.2</div>
+                                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Optimization</div>
+                                    <div className="text-lg font-bold text-slate-900 dark:text-white">Multi-Objective</div>
+                                    <div className="text-xs text-slate-500 mt-1">Mastery + engagement</div>
                                 </div>
-                                <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Model Accuracy</div>
-                                    <div className="text-lg font-bold text-slate-900 dark:text-white">87.5%</div>
-                                </div>
+                            </div>
+                            <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+                                <p className="text-sm text-blue-900 dark:text-blue-100">
+                                    <span className="font-semibold">💡 About the RL System:</span> Our PPO model analyzes your current mastery across all topics and recommends the optimal next step to maximize your learning progress while maintaining engagement.
+                                </p>
                             </div>
                         </CardContent>
                     </Card>

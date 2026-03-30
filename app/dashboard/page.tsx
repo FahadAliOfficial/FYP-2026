@@ -16,6 +16,15 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Code2, Play, BookOpen, TrendingUp, Plus, Globe } from "lucide-react"
 import { useAuth } from "@/lib/contexts/auth-context"
+import { 
+  getDashboardSummary, 
+  getActiveTransferBoosts, 
+  getRecentSynergyBonuses,
+  type DashboardSummary,
+  type TransferBoost,
+  type SynergyBonus,
+  type RecommendedTopic
+} from "@/lib/api/dashboard"
 
 const languageMap: Record<string, { name: string; logo: string; color: string }> = {
   python_3: { name: "Python", logo: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg", color: "from-blue-500 to-blue-600" },
@@ -33,9 +42,13 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [currentLanguage, setCurrentLanguage] = useState<string | null>(null)
   const [learningCards, setLearningCards] = useState<any[]>([])
-
-  // TODO: In production, fetch from API - GET /api/user/learning-paths
-  // Expected response: Array of learning paths with progress data
+  
+  // Dashboard data state
+  const [dashboardData, setDashboardData] = useState<DashboardSummary | null>(null)
+  const [transferBoosts, setTransferBoosts] = useState<TransferBoost[]>([])
+  const [synergyBonuses, setSynergyBonuses] = useState<SynergyBonus[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const siteName = process.env.NEXT_PUBLIC_SITE_NAME || "LearnRL"
 
@@ -44,14 +57,11 @@ export default function DashboardPage() {
     if (typeof window !== 'undefined') {
       const selectedLanguage = localStorage.getItem('selectedLanguage')
       
-      // TODO: In production, fetch from API - GET /api/user/profile
-      // Expected response: { user_id, email, language_id, languages_learning[] }
-      
       // If user has language in their profile but not in localStorage, sync it
       if (!selectedLanguage && user?.last_active_language) {
         localStorage.setItem('selectedLanguage', user.last_active_language)
         setCurrentLanguage(user.last_active_language)
-        return // Don't redirect, just set the language
+        return
       }
       
       if (!selectedLanguage && !user?.last_active_language) {
@@ -73,10 +83,10 @@ export default function DashboardPage() {
             id: 1,
             language_id: languageToUse,
             language: langData?.name || "Unknown",
-            difficulty: 0.5, // Medium difficulty (0.0-1.0 scale)
+            difficulty: 0.5,
             progress: 0,
             topicsCompleted: 0,
-            totalTopics: 8, // 8 universal concepts
+            totalTopics: 8,
             accuracy: 0,
           }
           setLearningCards([initialCard])
@@ -86,93 +96,43 @@ export default function DashboardPage() {
     }
   }, [router, user])
 
-  // TODO: In production, fetch from API - POST /api/state-vector
-  // Mock mastery data for current language
-  const mockMasteryData = {
-    UNIV_VAR: { mastery: 0.82, last_practiced: "2026-01-05T10:00:00Z", days_passed: 1 },
-    UNIV_COND: { mastery: 0.68, last_practiced: "2026-01-03T14:00:00Z", days_passed: 3 },
-    UNIV_LOOP: { mastery: 0.45, last_practiced: "2025-12-28T09:00:00Z", days_passed: 9 },
-    UNIV_FUNC: { mastery: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
-    UNIV_COLL: { mastery: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
-    UNIV_ERR: { mastery: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
-    UNIV_OOP_BASIC: { mastery: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
-    UNIV_OOP_ADV: { mastery: 0.0, last_practiced: "2026-01-06T00:00:00Z", days_passed: 0 },
-  }
+  // Fetch dashboard data when language is set
+  useEffect(() => {
+    if (!currentLanguage) return
+    const languageId = currentLanguage
 
-  // TODO: Calculate decay alerts from mastery data
-  // Alert if current mastery < 0.5 after decay
-  const mockDecayAlerts = [
-    {
-      concept_id: "UNIV_LOOP",
-      concept_name: "Loops",
-      current_mastery: 0.45 * Math.exp(-0.02 * 9), // 0.37
-      original_mastery: 0.45,
-      days_passed: 9,
-    },
-  ]
+    async function fetchDashboardData() {
+      setIsLoading(true)
+      setError(null)
+      
+      try {
+        // Fetch main dashboard summary (mastery, decay, RL recommendation, recent sessions)
+        const summary = await getDashboardSummary(languageId)
+        setDashboardData(summary)
+        
+        // Fetch transfer boosts and synergy bonuses (lower priority)
+        try {
+          const [boosts, bonuses] = await Promise.all([
+            getActiveTransferBoosts(languageId),
+            getRecentSynergyBonuses(languageId, 7)
+          ])
+          setTransferBoosts(boosts)
+          setSynergyBonuses(bonuses)
+        } catch (err) {
+          // Non-critical - continue even if these fail
+          console.warn("Failed to fetch transfer/synergy data:", err)
+        }
+        
+      } catch (err: any) {
+        console.error("Failed to fetch dashboard data:", err)
+        setError(err.message || "Failed to load dashboard data")
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-  // TODO: In production, get from RL model recommendation
-  const mockRecommendation = {
-    concept_id: "UNIV_LOOP",
-    concept_name: "Loops",
-    sub_topic: "for_loop_basics",
-    target_difficulty: 0.5,
-    estimated_time_minutes: 15,
-    reason: "Your Loops mastery has decayed and needs reinforcement. Start with basics before advancing to nested loops.",
-    prerequisite_met: true,
-  }
-
-  // TODO: In production, fetch from API - GET /api/transfer/active-boosts
-  const mockTransferBoosts = [
-    {
-      source_language: "Python",
-      source_concept: "Loops",
-      target_language: "JavaScript",
-      target_concept: "Loops",
-      source_mastery: 0.82,
-      boost_amount: 12,
-      transfer_coefficient: 0.4,
-      logic_boost: 0.7,
-      syntax_friction: 0.3,
-    },
-  ]
-
-  // TODO: In production, fetch from API - GET /api/synergy/recent-bonuses
-  const mockSynergyBonuses = [
-    {
-      from_concept: "Loops",
-      to_concept: "Conditionals",
-      bonus_amount: 8,
-      reinforcement_weight: 0.1,
-      bidirectional: true,
-    },
-  ]
-
-  // TODO: In production, fetch from API - GET /api/sessions/recent
-  const mockRecentSessions = [
-    {
-      id: "1",
-      timestamp: "2026-01-05T14:30:00Z",
-      concept_id: "UNIV_VAR",
-      concept_name: "Variables & Data Types",
-      sub_topic: "variable_scope",
-      score: 0.85,
-      difficulty: 0.65,
-      mastery_gain: 0.08,
-      questions_answered: 10,
-    },
-    {
-      id: "2",
-      timestamp: "2026-01-03T10:15:00Z",
-      concept_id: "UNIV_COND",
-      concept_name: "Conditionals",
-      sub_topic: "if_else_basics",
-      score: 0.70,
-      difficulty: 0.50,
-      mastery_gain: 0.05,
-      questions_answered: 8,
-    },
-  ]
+    fetchDashboardData()
+  }, [currentLanguage])
 
   // Handlers
   const handleConceptClick = (conceptId: string) => {
@@ -190,8 +150,18 @@ export default function DashboardPage() {
 
   const handleStartPractice = (conceptId: string, subTopic: string) => {
     console.log("Start practice:", conceptId, subTopic)
-    // TODO: Navigate to practice configuration page
-    router.push(`/practice?concept=${conceptId}&subtopic=${subTopic}`)
+    // Navigate to practice with RL recommendation data
+    const recommendation = dashboardData?.recommendation
+    if (recommendation && recommendation.concept_id === conceptId) {
+      // User clicked the RL-recommended topic - pass all RL data via URL params
+      const difficulty = recommendation.target_difficulty
+      const actionId = (recommendation as any).action_id || null  // If backend includes action_id
+      
+      router.push(`/practice?concept=${conceptId}&difficulty=${difficulty}&mode=exam${actionId ? `&rl_action_id=${actionId}` : ''}`)
+    } else {
+      // User clicked a different topic - regular practice mode
+      router.push(`/practice?concept=${conceptId}&subtopic=${subTopic}`)
+    }
   }
 
   const handlePracticeAgain = (conceptId: string, subTopic: string) => {
@@ -291,7 +261,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-black text-green-600 dark:text-green-400">
-                  {learningCards.reduce((acc, card) => acc + card.topicsCompleted, 0)}
+                  {dashboardData?.mastery_data?.filter(m => m.mastery > 0).length || 0}
                 </div>
               </CardContent>
             </Card>
@@ -306,10 +276,10 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-black text-yellow-600 dark:text-yellow-400">
-                  {learningCards.length > 0
+                  {dashboardData?.recent_sessions && dashboardData.recent_sessions.length > 0
                     ? Math.round(
-                        learningCards.reduce((acc, card) => acc + card.accuracy, 0) /
-                          learningCards.length
+                        dashboardData.recent_sessions.reduce((acc, session) => acc + session.score, 0) /
+                          dashboardData.recent_sessions.length
                       )
                     : 0}
                   %
@@ -334,35 +304,51 @@ export default function DashboardPage() {
           </div>
 
           {/* Knowledge Decay Alerts */}
-          {mockDecayAlerts.length > 0 && (
+          {dashboardData?.decay_alerts && dashboardData.decay_alerts.length > 0 && (
             <div className="mb-8">
               <DecayAlerts 
-                alerts={mockDecayAlerts} 
+                alerts={dashboardData.decay_alerts} 
                 onScheduleReview={handleScheduleReview}
               />
             </div>
           )}
 
           {/* Cross-Language Transfer Boosts */}
-          {mockTransferBoosts.length > 0 && (
+          {transferBoosts.length > 0 && (
             <div className="mb-8">
-              <TransferBoostAlert boosts={mockTransferBoosts} />
+              <TransferBoostAlert boosts={transferBoosts} />
             </div>
           )}
 
           {/* Synergy Bonuses */}
-          {mockSynergyBonuses.length > 0 && (
+          {synergyBonuses.length > 0 && (
             <div className="mb-8">
-              <SynergyNotifications bonuses={mockSynergyBonuses} />
+              <SynergyNotifications bonuses={synergyBonuses} />
             </div>
           )}
 
           {/* AI Recommended Topic */}
           <div className="mb-8">
-            <RecommendedTopicCard
-              recommendation={mockRecommendation}
-              onStartPractice={handleStartPractice}
-            />
+            {isLoading ? (
+              <Card className="border-2 border-slate-200 dark:border-slate-700">
+                <CardContent className="p-8">
+                  <div className="animate-pulse flex space-x-4">
+                    <div className="flex-1 space-y-4 py-1">
+                      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
+                      <div className="space-y-2">
+                        <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                        <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-5/6"></div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <RecommendedTopicCard
+                recommendation={dashboardData?.recommendation || null}
+                onStartPractice={handleStartPractice}
+              />
+            )}
           </div>
 
           {/* Existing Learning Cards */}

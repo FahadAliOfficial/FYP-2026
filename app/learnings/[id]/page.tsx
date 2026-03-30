@@ -123,7 +123,7 @@ function LearningDetailPage() {
         const recommendation = await getRLRecommendation({
           user_id: user.id,
           language_id: languageId,
-          strategy: 'ppo',
+          strategy: 'dqn',
           deterministic: true
         })
 
